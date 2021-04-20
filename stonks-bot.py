@@ -32,6 +32,8 @@ def get_quote(symbol):
     url = 'https://finnhub.io/api/v1/quote?symbol=' + symbol + '&token=' + FINNHUB_KEY
     response = requests.get(url)
     quote = response.json()
+    if quote['c'] == 0:
+        return None
     change = round(quote['c'] - quote['pc'], 2)
     quote['change'] = '+$' + str(change) if change > 0 else '-$' + str(abs(change))
     percent = round((((quote['c'] / quote['pc']) - 1)*100), 2)
@@ -42,7 +44,10 @@ def get_quote(symbol):
     
 async def ticker_message(ticker, message):
     quote = get_quote(ticker)
-    msg  = "Quote for **{symbol}**: ${c:.2f} ({change} {emoji} {percent}%) O: {o:.2f} H: ${h:.2f} L: ${l:.2f} PC: ${pc:.2f}".format(**quote)
+    if quote == None:
+        msg = f"No information found for ticker **{ticker}**."
+    else:
+        msg = "Quote for **{symbol}**: ${c:.2f} ({change} {emoji} {percent}%) O: {o:.2f} H: ${h:.2f} L: ${l:.2f} PC: ${pc:.2f}".format(**quote)
     print(msg)
     await message.channel.send(msg)
 
