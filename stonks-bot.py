@@ -2,6 +2,9 @@ import discord
 import os
 from dotenv import load_dotenv
 import requests
+from datetime import datetime
+import threading
+import asyncio
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -9,9 +12,11 @@ GUILD = os.getenv('DISCORD_GUILD')
 FINNHUB_KEY = os.getenv('FINNHUB_KEY')
 STONKS_EMOJI = os.getenv('STONKS_EMOJI')
 UNSTONKS_EMOJI = os.getenv('UNSTONKS_EMOJI')
+STATUS_UPDATE_SECS = int(os.getenv('STATUS_UPDATE_SECS'))
+
+status_ticker = os.getenv('STATUS_TICKER')
 
 client = discord.Client()
-
 
 @client.event
 async def on_ready():
@@ -22,11 +27,23 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.content.lower().startswith('stonks'):
-        tokens = message.content.strip().split(' ')
-        for token in tokens[1:]:
-            ticker = token.upper()
-            await ticker_message(ticker, message)
+    if not message.content.lower().startswith('stonks'):
+        return
+    
+    tokens = message.content.strip().split(' ')[1:]
+    
+    if tokens[0] == "cfg":
+        if tokens[1] == "status":
+            global status_ticker
+            status_ticker = tokens[2].upper()
+            await ticker_status()
+            return
+        else:
+            message.channel.send("Unknown config command.")
+
+    for token in tokens:
+        ticker = token.upper()
+        await ticker_message(ticker, message)
 
 def get_quote(symbol):
     url = 'https://finnhub.io/api/v1/quote?symbol=' + symbol + '&token=' + FINNHUB_KEY
@@ -51,4 +68,20 @@ async def ticker_message(ticker, message):
     print(msg)
     await message.channel.send(msg)
 
+async def ticker_status():
+    quote = get_quote(status_ticker)
+    if quote == None:
+        stat = f"ERROR: {status_ticker}"
+    else:
+        stat = "{symbol} ${c:.2f} {percent}%".format(**quote)
+    print(stat)
+    game = discord.Game(stat)
+    await client.change_presence(status=discord.Status.online, activity=game)
+
+def status_update_loop():    
+    threading.Timer(STATUS_UPDATE_SECS, status_update_loop).start()
+    asyncio.run(ticker_status())
+
+print(STATUS_UPDATE_SECS)
+# status_update_loop()
 client.run(TOKEN)
