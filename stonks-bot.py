@@ -89,6 +89,9 @@ async def ticker_status():
     print("STATUS", stat)
     game = discord.Activity(name=stat, type=discord.ActivityType.watching)
     await client.change_presence(status=discord.Status.online, activity=game)
+    new_name = "stonks" if quote['c'] > quote['pc'] else "unstonks"
+    stonks_channel = client.get_channel(int(os.getenv('STONKS_CHANNEL')))
+    await stonks_channel.edit(name=new_name)
 
 async def chart_message(ticker, message):
     async with message.channel.typing():
