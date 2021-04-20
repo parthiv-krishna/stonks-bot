@@ -32,6 +32,9 @@ async def on_message(message):
     
     tokens = message.content.strip().split(' ')[1:]
 
+    if len(tokens) == 0:
+        return
+
     if tokens[0] == "cfg":
         if tokens[1] == "status":
             global status_ticker
