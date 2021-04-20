@@ -35,16 +35,12 @@ async def on_message(message):
     if len(tokens) == 0:
         return
 
-    if tokens[0] == "cfg":
-        if tokens[1] == "status":
-            global status_ticker
-            status_ticker = tokens[2].upper()
-            await ticker_status()
-            await message.channel.send(f"Updated status to track {status_ticker}.")
-            return
-        else:
-            await message.channel.send("Unknown config command.")
-            return
+    if tokens[0] == "status":
+        global status_ticker
+        status_ticker = tokens[1].upper()
+        await ticker_status()
+        await message.channel.send(f"Updated status to track {status_ticker}.")
+        return
     
     if tokens[0] == "chart":
         if len(tokens) < 2:
