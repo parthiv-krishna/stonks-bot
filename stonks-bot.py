@@ -69,8 +69,9 @@ def get_quote(symbol):
     quote['emoji'] = STONKS_EMOJI if change > 0 else UNSTONKS_EMOJI
     return quote
     
-async def ticker_message(ticker, message):
-    quote = get_quote(ticker)
+async def ticker_message(ticker, message, quote="default"):
+    if quote == "default":
+        quote = get_quote(ticker)
     if quote == None:
         msg = f"No information found for ticker **{ticker}**."
     else:
@@ -94,11 +95,13 @@ async def ticker_status():
     await stonks_channel.edit(name=new_name)
 
 async def chart_message(ticker, message):
+    quote = get_quote(ticker.upper())
     async with message.channel.typing():
-        save_chart(ticker)
+        if not save_chart(ticker, realtime=quote):
+            return
         print("CHART", ticker)
         await message.channel.send(file=discord.File('stonks.jpg'))
-        await ticker_message(ticker.upper(), message)
+        await ticker_message(ticker.upper(), message, quote=quote)
 
 ticker_status.start()
 client.run(TOKEN)

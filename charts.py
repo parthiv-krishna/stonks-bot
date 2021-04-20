@@ -3,11 +3,12 @@ import json
 import os
 from dotenv import load_dotenv
 import plotly.graph_objs as go
+from datetime import date
 
 load_dotenv()
 ALPHAVANTAGE_KEY = os.getenv('ALPHAVANTAGE_KEY')
 
-def save_chart(ticker, file="stonks.jpg"):
+def save_chart(ticker, realtime=None, file="stonks.jpg"):
     ticker = ticker.upper()
     params = {
         'apikey'     : ALPHAVANTAGE_KEY,
@@ -25,7 +26,8 @@ def save_chart(ticker, file="stonks.jpg"):
 
     if 'Error Message' in data:
         print(f"save_chart: ticker {ticker} not found")
-        return -1
+        return False
+    
     else:
         dates = []
         open_prices = []
@@ -33,12 +35,20 @@ def save_chart(ticker, file="stonks.jpg"):
         low_prices = []
         close_prices = []
 
-        for date in data['Time Series (Daily)']:
-            dates.append(date)
-            open_prices.append(data['Time Series (Daily)'][date]['1. open'])
-            high_prices.append(data['Time Series (Daily)'][date]['2. high'])
-            low_prices.append(data['Time Series (Daily)'][date]['3. low'])
-            close_prices.append(data['Time Series (Daily)'][date]['4. close'])
+        if realtime is not None:
+            today = date.today().strftime("%Y-%m-%d")
+            dates.append(today)
+            open_prices.append(realtime['o'])
+            high_prices.append(realtime['h'])
+            low_prices.append(realtime['l'])
+            close_prices.append(realtime['c'])
+
+        for point in data['Time Series (Daily)']:
+            dates.append(point)
+            open_prices.append(data['Time Series (Daily)'][point]['1. open'])
+            high_prices.append(data['Time Series (Daily)'][point]['2. high'])
+            low_prices.append(data['Time Series (Daily)'][point]['3. low'])
+            close_prices.append(data['Time Series (Daily)'][point]['4. close'])
             
         candlestick_data = [go.Candlestick(x=dates, open=open_prices, high=high_prices, low=low_prices, close=close_prices)]
 
@@ -50,6 +60,8 @@ def save_chart(ticker, file="stonks.jpg"):
         fig.update_layout(xaxis_rangeslider_visible=False)
 
         fig.write_image(file)
+
+        return True
 
 if __name__ == '__main__':
     ticker = input('Enter ticker: ')
