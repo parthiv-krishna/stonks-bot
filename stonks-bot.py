@@ -1,10 +1,9 @@
 import discord
+from discord.ext.tasks import loop
 import os
 from dotenv import load_dotenv
 import requests
 from datetime import datetime
-import threading
-import asyncio
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -68,7 +67,9 @@ async def ticker_message(ticker, message):
     print(msg)
     await message.channel.send(msg)
 
+@loop(seconds=STATUS_UPDATE_SECS)
 async def ticker_status():
+    await client.wait_until_ready()
     quote = get_quote(status_ticker)
     if quote == None:
         stat = f"ERROR: {status_ticker}"
@@ -78,10 +79,5 @@ async def ticker_status():
     game = discord.Game(stat)
     await client.change_presence(status=discord.Status.online, activity=game)
 
-def status_update_loop():    
-    threading.Timer(STATUS_UPDATE_SECS, status_update_loop).start()
-    asyncio.run(ticker_status())
-
-print(STATUS_UPDATE_SECS)
-# status_update_loop()
+ticker_status.start()
 client.run(TOKEN)
