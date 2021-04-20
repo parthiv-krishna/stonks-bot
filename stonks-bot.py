@@ -46,12 +46,9 @@ async def on_message(message):
         if len(tokens) < 2:
             await message.channel.send("Please provide a ticker to chart.")
             return
-        save_chart(tokens[1])
         if len(tokens) > 2:
             await message.channel.send(f"Only charting {tokens[1].upper()}.")
-        print("CHART", tokens[1])
-        await message.channel.send(file=discord.File('stonks.jpg'))
-        await ticker_message(tokens[1].upper(), message)
+        await chart_message(tokens[1], message)
         return
 
     for token in tokens:
@@ -92,6 +89,13 @@ async def ticker_status():
     print("STATUS", stat)
     game = discord.Activity(name=stat, type=discord.ActivityType.watching)
     await client.change_presence(status=discord.Status.online, activity=game)
+
+async def chart_message(ticker, message):
+    async with message.channel.typing():
+        save_chart(ticker)
+        print("CHART", ticker)
+        await message.channel.send(file=discord.File('stonks.jpg'))
+        await ticker_message(ticker.upper(), message)
 
 ticker_status.start()
 client.run(TOKEN)
