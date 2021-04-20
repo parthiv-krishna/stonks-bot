@@ -91,7 +91,7 @@ async def ticker_status():
     else:
         stat = "{symbol} ${c:.2f} {percent}%".format(**quote)
     print("STATUS", stat)
-    game = discord.Game(stat)
+    game = discord.Activity(name=stat, type=discord.ActivityType.watching)
     await client.change_presence(status=discord.Status.online, activity=game)
 
 ticker_status.start()
