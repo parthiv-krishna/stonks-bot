@@ -74,7 +74,7 @@ async def ticker_message(ticker, message):
     if quote == None:
         msg = f"No information found for ticker **{ticker}**."
     else:
-        msg = "Quote for **{symbol}**: ${c:.2f} ({change} {emoji} {percent}%) O: {o:.2f} H: ${h:.2f} L: ${l:.2f} PC: ${pc:.2f}".format(**quote)
+        msg = "**{symbol}**: ${c:.2f} ({change} {emoji} {percent}%) *Open*: {o:.2f} *High*: ${h:.2f} *Low*: ${l:.2f} *Prev. Close*: ${pc:.2f}".format(**quote)
     print("MESSAGE", msg)
     await message.channel.send(msg)
 
