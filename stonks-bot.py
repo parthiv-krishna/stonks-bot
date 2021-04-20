@@ -22,7 +22,7 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.content.startswith('stonks'):
+    if message.content.lower().startswith('stonks'):
         tokens = message.content.strip().split(' ')
         for token in tokens[1:]:
             ticker = token.upper()
