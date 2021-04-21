@@ -10,11 +10,15 @@ load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD = os.getenv('DISCORD_GUILD')
 FINNHUB_KEY = os.getenv('FINNHUB_KEY')
+ALPHAVANTAGE_KEY = os.getenv('ALPHAVANTAGE_KEY')
 STONKS_EMOJI = os.getenv('STONKS_EMOJI')
 UNSTONKS_EMOJI = os.getenv('UNSTONKS_EMOJI')
 STATUS_UPDATE_SECS = int(os.getenv('STATUS_UPDATE_SECS'))
 
 status_ticker = os.getenv('STATUS_TICKER')
+pfp_panik = bytearray(open("pfp/panik.jpg", 'rb').read())
+pfp_kalm = bytearray(open("pfp/kalm.jpg", 'rb').read())
+
 
 client = discord.Client()
 
@@ -51,6 +55,14 @@ async def on_message(message):
         await chart_message(tokens[1], message)
         return
 
+    if tokens[0] == "info":
+        for token in tokens[1:]:
+            ticker = token.upper()
+            info = get_info(ticker)
+            await message.channel.send("```\n**" + ticker + "**: " + info + '\n```')
+
+        return
+
     for token in tokens:
         ticker = token.upper()
         await ticker_message(ticker, message)
@@ -68,7 +80,13 @@ def get_quote(symbol):
     quote['symbol'] = symbol
     quote['emoji'] = STONKS_EMOJI if change > 0 else UNSTONKS_EMOJI
     return quote
-    
+
+def get_info(symbol):
+    url = 'https://www.alphavantage.co/query?function=OVERVIEW&symbol=' + symbol + '&apikey=' + ALPHAVANTAGE_KEY
+    response = requests.get(url)
+    info = response.json()
+    return info
+
 async def ticker_message(ticker, message, quote="default"):
     if quote == "default":
         quote = get_quote(ticker)
@@ -90,9 +108,14 @@ async def ticker_status():
     print("STATUS", stat)
     game = discord.Activity(name=stat, type=discord.ActivityType.watching)
     await client.change_presence(status=discord.Status.online, activity=game)
-    new_name = "stonks" if quote['c'] > quote['pc'] else "unstonks"
     stonks_channel = client.get_channel(int(os.getenv('STONKS_CHANNEL')))
-    await stonks_channel.edit(name=new_name)
+    new_name = "stonks" if quote['c'] > quote['pc'] else "unstonks"
+    if new_name != stonks_channel.name:
+        print("Updating channel name to: " + new_name)
+        await stonks_channel.edit(name=new_name)
+        new_pfp = pfp_kalm if quote['c'] > quote['pc'] else pfp_panik
+        await client.user.edit(avatar=new_pfp)
+        print("Changing picture")
 
 async def chart_message(ticker, message):
     quote = get_quote(ticker.upper())
