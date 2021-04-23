@@ -83,7 +83,7 @@ async def on_message(message):
         msgs = broker.buy_stocks(buy_orders)
         for msg in msgs:
             await message.channel.send(msg)
-        await message.channel.send(f"Available cash balance: ${broker.balance:.2f}")
+        await message.channel.send(f"Available cash balance: ${broker.balance:,.2f}")
         return
 
     if tokens[0] == "sell":
@@ -102,7 +102,7 @@ async def on_message(message):
         msgs = broker.sell_stocks(sell_orders)
         for msg in msgs:
             await message.channel.send(msg)
-        await message.channel.send(f"Available cash balance: ${broker.balance:.2f}")
+        await message.channel.send(f"Available cash balance: ${broker.balance:,.2f}")
         return
     
     if tokens[0] == "info":
@@ -134,7 +134,7 @@ async def ticker_message(ticker, message, quote="default"):
     if quote == None:
         msg = f"No information found for ticker **{ticker}**."
     else:
-        msg = "**{symbol}**: ${c:.2f} ({change} {emoji} {percent}%) *Open*: {o:.2f} *High*: ${h:.2f} *Low*: ${l:.2f} *Prev. Close*: ${pc:.2f}".format(**quote)
+        msg = "**{symbol}**: ${c:,.2f} ({change} {emoji} {percent}%) *Open*: ${o:,.2f} *High*: ${h:,.2f} *Low*: ${l:,.2f} *Prev. Close*: ${pc:,.2f}".format(**quote)
     print("MESSAGE", msg)
     await message.channel.send(msg)
 
@@ -154,7 +154,7 @@ async def ticker_status():
     if quote == None:
         stat = f"ERROR: {status_ticker}"
     else:
-        stat = "{symbol} ${c:.2f} {percent}%".format(**quote)
+        stat = "{symbol} ${c:,.2f} {percent}%".format(**quote)
     print("STATUS", stat)
     game = discord.Activity(name=stat, type=discord.ActivityType.watching)
     await client.change_presence(status=discord.Status.online, activity=game)
@@ -178,7 +178,7 @@ async def chart_message(ticker, message):
         print("CHART", ticker)
         await message.channel.send(file=discord.File('stonks.jpg'))
         if ticker.upper() == "PORTFOLIO":
-            await message.channel.send(f"Portfolio value: ${broker.get_curr_val():.2f}")
+            await message.channel.send(f"Portfolio value: ${broker.get_curr_val():,.2f}")
         else:
             await ticker_message(ticker.upper(), message, quote=quote)
 
