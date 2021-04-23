@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import requests
 from datetime import datetime
 from charts import save_chart
+import textwrap
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -14,6 +15,7 @@ ALPHAVANTAGE_KEY = os.getenv('ALPHAVANTAGE_KEY')
 STONKS_EMOJI = os.getenv('STONKS_EMOJI')
 UNSTONKS_EMOJI = os.getenv('UNSTONKS_EMOJI')
 STATUS_UPDATE_SECS = int(os.getenv('STATUS_UPDATE_SECS'))
+INFO_WIDTH = int(os.getenv('INFO_WIDTH'))
 
 status_ticker = os.getenv('STATUS_TICKER')
 pfp_panik = bytearray(open("pfp/panik.jpg", 'rb').read())
@@ -57,10 +59,7 @@ async def on_message(message):
 
     if tokens[0] == "info":
         for token in tokens[1:]:
-            ticker = token.upper()
-            info = get_info(ticker)
-            await message.channel.send("```\n**" + ticker + "**: " + info + '\n```')
-
+            await info_message(token.upper(), message)
         return
 
     for token in tokens:
@@ -80,12 +79,6 @@ def get_quote(symbol):
     quote['symbol'] = symbol
     quote['emoji'] = STONKS_EMOJI if change > 0 else UNSTONKS_EMOJI
     return quote
-
-def get_info(symbol):
-    url = 'https://www.alphavantage.co/query?function=OVERVIEW&symbol=' + symbol + '&apikey=' + ALPHAVANTAGE_KEY
-    response = requests.get(url)
-    info = response.json()
-    return info
 
 async def ticker_message(ticker, message, quote="default"):
     if quote == "default":
@@ -121,10 +114,22 @@ async def chart_message(ticker, message):
     quote = get_quote(ticker.upper())
     async with message.channel.typing():
         if not save_chart(ticker, realtime=quote):
+            await(message.channel.send(ticker.upper() + " not found."))
             return
         print("CHART", ticker)
         await message.channel.send(file=discord.File('stonks.jpg'))
         await ticker_message(ticker.upper(), message, quote=quote)
+
+async def info_message(symbol, message):
+    url = 'https://www.alphavantage.co/query?function=OVERVIEW&symbol=' + symbol + '&apikey=' + ALPHAVANTAGE_KEY
+    response = requests.get(url)
+    info = response.json()
+    desc = info['Description']
+    desc_lines = textwrap.wrap(desc, width=INFO_WIDTH)
+    with open('stonks.txt', mode="w") as f:
+        f.write('\n'.join(desc_lines))
+    msg = "Info for **" + symbol + "**:"
+    await message.channel.send(msg, file=discord.File('stonks.txt'))
 
 ticker_status.start()
 client.run(TOKEN)
