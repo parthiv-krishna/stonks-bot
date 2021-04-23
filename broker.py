@@ -3,19 +3,20 @@ import json
 import os
 from datetime import date
 import queue
+import plotly.graph_objs as go
 
-def track_portfolio(func):
+def save(func):
     def wrapper(*args, **kwargs):
         rval = func(*args, **kwargs)
         self = args[0]
-        self.get_curr_val()
+        self.pickle_data()
         return rval
     return wrapper
 
 
 class Broker():
 
-    def __init__(self, FINANCIAL_MODELING_API_KEYS, starting_amount = float(1000000)):
+    def __init__(self, FINANCIAL_MODELING_API_KEYS, starting_amount = float(1000000), pickle_file = 'broker_data.pickle'):
         """Takes list of api keys to use and starting amount"""
         self._curr_key_idx = 0
         self.balance = starting_amount
@@ -34,8 +35,6 @@ class Broker():
     def get_curr_prices(self, tickers):
         """Takes iterable of UPPERCASE ticker symbols, then returns dictionary of prices corresponding to those tickers"""
 
-        if tickers is None:
-            raise Exception('No tickers given')
         if not tickers:
             raise Exception('Empty list of tickers given')
 
@@ -57,14 +56,13 @@ class Broker():
         return prices
 
     def execute_queue_orders(self):
-        print("executing queue")
         if self.market_is_open():
             while not self.order_queue.empty():
-                order = self.order_queue.get()
-                if order[0] == 'BUY':
-                    self.buy_stocks(order[1])
+                order_type, order = self.order_queue.get()
+                if order_type == 'BUY':
+                    self.buy_stocks(order)
                 else:
-                    self.sell_stocks(order[1])
+                    self.sell_stocks(order)
 
     def get_curr_key(self):
         """Cycles through API keys"""
@@ -94,15 +92,15 @@ class Broker():
 
                     self.balance -= cost
 
-                    buy_info.append(f'Bought {buy_order[ticker]} shares of {ticker} at price {prices[ticker]} for a total of {cost}.')
+                    buy_info.append(f'Bought {buy_order[ticker]} shares of {ticker} at price ${prices[ticker]:.2f} for a total of ${cost:.2f}.')
 
                 else:
-                    buy_info.append(f'Cannot afford {buy_order[ticker]} shares of {ticker}.')
+                    buy_info.append(f'Cannot afford {buy_order[ticker]} shares of {ticker}. Current balance: ${self.balance:.2f}')
         else: # market not open, add order to queue
             self.order_queue.put(('BUY', buy_order))
             buy_info.append('Market not open, adding buy order to queue. Here is your order:')
             for ticker in prices:
-                buy_info.append(f'BUY {buy_order[ticker]} shares of {ticker} at roughly {prices[ticker]} per share.')
+                buy_info.append(f'BUY {buy_order[ticker]} shares of {ticker} at roughly ${prices[ticker]:.2f} per share.')
         return buy_info
 
     def sell_stocks(self, sell_order):
@@ -119,12 +117,12 @@ class Broker():
                     gain = sell_order[ticker] * prices[ticker]
                     self.owned_shares[ticker] -= sell_order[ticker]
                     self.balance += gain
-                    sell_info.append(f'Sold {sell_order[ticker]} shares of {ticker} at price {prices[ticker]} for a total of {gain}.')
+                    sell_info.append(f'Sold {sell_order[ticker]} shares of {ticker} at price ${prices[ticker]:.2f} for a total of ${gain:.2f}.')
         else: # market not open
             self.order_queue.put(('SELL', sell_order))
             sell_info.append('Market not open, adding sell order to queue. Here is your order:')
             for ticker in prices:
-                sell_info.append(f'SELL {sell_order[ticker]} shares of {ticker} at roughly {prices[ticker]} per share.')
+                sell_info.append(f'SELL {sell_order[ticker]} shares of {ticker} at roughly ${prices[ticker]:.2f} per share.')
 
         return sell_info
 
@@ -139,9 +137,21 @@ class Broker():
             for ticker in self.owned_shares:
                 total += prices[ticker] * self.owned_shares[ticker]
 
-        self.portfolio_history[date.today().strftime("%d/%m/%Y")] = total
+        self.update_history(total)
 
         return total
+
+    def update_history(self, total):
+        d = date.today().strftime("%d/%m/%Y")
+        if d not in self.portfolio_history:
+            self.portfolio_history[d] = { 'open' : total, 'high' : total, 'low' : total, 'close' : total }
+        if total < self.portfolio_history[d]['low']:
+            self.portfolio_history[d]['low'] = total
+        if total > self.portfolio_history[d]['high']:
+            self.portfolio_history[d]['high'] = total
+
+        self.portfolio_history[d]['close'] = total
+
 
     def market_is_open(self):
         params = { 'apikey' : self.get_curr_key() }
@@ -151,3 +161,31 @@ class Broker():
 
         data = response.json()
         return data['isTheStockMarketOpen']
+
+    def save_chart_of_portfolio_history(self, file = "stonks.jpg"):
+        dates = []
+        open_prices = []
+        high_prices = []
+        low_prices = []
+        close_prices = []
+
+        for date in self.portfolio_history:
+            dates.append(date)
+            open_prices.append(self.portfolio_history[date]['open'])
+            high_prices.append(self.portfolio_history[date]['high'])
+            low_prices.append(self.portfolio_history[date]['low'])
+            close_prices.append(self.portfolio_history[date]['close'])
+            
+        candlestick_data = [go.Candlestick(x=dates, open=open_prices, high=high_prices, low=low_prices, close=close_prices)]
+
+        layout = {'title' : 'Portfolio Value',
+                  'xaxis' : go.layout.XAxis(title=go.layout.xaxis.Title( text="Date")),
+                  'yaxis' : go.layout.YAxis(title=go.layout.yaxis.Title( text="Total Value"))}
+            
+        fig = go.Figure(data=candlestick_data, layout=layout)
+        fig.update_layout(xaxis_rangeslider_visible=False)
+
+        fig.write_image(file)
+
+    def pickle_data(self):
+        pass

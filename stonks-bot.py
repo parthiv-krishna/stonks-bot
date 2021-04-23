@@ -170,12 +170,17 @@ async def ticker_status():
 async def chart_message(ticker, message):
     quote = get_quote(ticker.upper())
     async with message.channel.typing():
-        if not save_chart(ticker, realtime=quote):
+        if ticker.upper() == "PORTFOLIO":
+            broker.save_chart_of_portfolio_history()
+        elif not save_chart(ticker, realtime=quote):
             await(message.channel.send(ticker.upper() + " not found."))
             return
         print("CHART", ticker)
         await message.channel.send(file=discord.File('stonks.jpg'))
-        await ticker_message(ticker.upper(), message, quote=quote)
+        if ticker.upper() == "PORTFOLIO":
+            await message.channel.send(f"Portfolio value: ${broker.get_curr_val():.2f}")
+        else:
+            await ticker_message(ticker.upper(), message, quote=quote)
 
 async def info_message(symbol, message):
     url = 'https://www.alphavantage.co/query?function=OVERVIEW&symbol=' + symbol + '&apikey=' + ALPHAVANTAGE_KEY
