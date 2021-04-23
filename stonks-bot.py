@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import requests
 from datetime import datetime
 from charts import save_chart
+from broker import Broker
 import textwrap
 
 load_dotenv()
@@ -12,6 +13,8 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD = os.getenv('DISCORD_GUILD')
 FINNHUB_KEY = os.getenv('FINNHUB_KEY')
 ALPHAVANTAGE_KEY = os.getenv('ALPHAVANTAGE_KEY')
+FINANCIALMODELING_KEYS = os.getenv('FINANCIALMODELING_KEYS').split(',')
+
 STONKS_EMOJI = os.getenv('STONKS_EMOJI')
 UNSTONKS_EMOJI = os.getenv('UNSTONKS_EMOJI')
 STATUS_UPDATE_SECS = int(os.getenv('STATUS_UPDATE_SECS'))
@@ -23,6 +26,8 @@ pfp_kalm = bytearray(open("pfp/kalm.jpg", 'rb').read())
 
 
 client = discord.Client()
+
+broker = Broker(FINANCIALMODELING_KEYS)
 
 @client.event
 async def on_ready():
@@ -62,6 +67,47 @@ async def on_message(message):
             await info_message(token.upper(), message)
         return
 
+    if tokens[0] == "buy":
+        buy_orders = {}
+        if len(tokens) % 2 == 0:
+            await message.channel.send("Buy format: `stonks buy ABC 1 DEFG 2 H 3`")
+            return
+        for i in range(1, len(tokens) - 1, 2):
+            ticker = tokens[i].upper()
+            try:
+                count = int(tokens[i+1])
+            except:
+                await message.channel.send("Buy format: `stonks buy ABC 1 DEFG 2 H 3`")
+                return
+            buy_orders[ticker] = count
+        broker.buy_stocks(buy_orders)
+        await message.channel.send(f"Available cash balance: ${broker.balance:.2f}")
+        return
+
+    if tokens[0] == "sell":
+        sell_orders = {}
+        if len(tokens) % 2 == 0:
+            await message.channel.send("Sell format: `stonks sell ABC 1 DEFG 2 H 3`")
+            return
+        for i in range(1, len(tokens) - 1, 2):
+            ticker = tokens[i].upper()
+            try:
+                count = int(tokens[i+1])
+            except:
+                await message.channel.send("Buy format: `stonks sell ABC 1 DEFG 2 H 3`")
+                return
+            sell_orders[ticker] = count
+        msgs = broker.sell_stocks(sell_orders)
+        # for msg in msgs:
+        #     await message.channel.send(msg)
+        await message.channel.send(f"Available cash balance: ${broker.balance:.2f}")
+        return
+    
+    if tokens[0] == "info":
+        for token in tokens[1:]:
+            await info_message(token.upper(), message)
+        return
+
     for token in tokens:
         ticker = token.upper()
         await ticker_message(ticker, message)
@@ -92,8 +138,17 @@ async def ticker_message(ticker, message, quote="default"):
 
 @loop(seconds=STATUS_UPDATE_SECS)
 async def ticker_status():
-    await client.wait_until_ready()
-    quote = get_quote(status_ticker)
+    if status_ticker == "PORTFOLIO":
+        quote = {}
+        quote['c'] = broker.get_curr_val()
+        quote['symbol'] = ""
+        quote['percent'] = 0
+        quote['pc'] = 0
+
+    else:
+        await client.wait_until_ready()
+        quote = get_quote(status_ticker)
+
     if quote == None:
         stat = f"ERROR: {status_ticker}"
     else:
