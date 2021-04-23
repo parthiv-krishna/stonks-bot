@@ -80,7 +80,9 @@ async def on_message(message):
                 await message.channel.send("Buy format: `stonks buy ABC 1 DEFG 2 H 3`")
                 return
             buy_orders[ticker] = count
-        broker.buy_stocks(buy_orders)
+        msgs = broker.buy_stocks(buy_orders)
+        for msg in msgs:
+            await message.channel.send(msg)
         await message.channel.send(f"Available cash balance: ${broker.balance:.2f}")
         return
 
@@ -98,8 +100,8 @@ async def on_message(message):
                 return
             sell_orders[ticker] = count
         msgs = broker.sell_stocks(sell_orders)
-        # for msg in msgs:
-        #     await message.channel.send(msg)
+        for msg in msgs:
+            await message.channel.send(msg)
         await message.channel.send(f"Available cash balance: ${broker.balance:.2f}")
         return
     
