@@ -128,7 +128,9 @@ async def info_message(symbol, message):
     desc_lines = textwrap.wrap(desc, width=INFO_WIDTH)
     with open('stonks.txt', mode="w") as f:
         f.write('\n'.join(desc_lines))
-    msg = "Info for **" + symbol + "**:"
+    period = desc.find(".", 50) # skip period from Corp. etc
+    first_sentence = desc[:period+1]
+    msg = "Info for **" + symbol + "**: " + first_sentence + " [Open attached file for full info]"
     await message.channel.send(msg, file=discord.File('stonks.txt'))
 
 ticker_status.start()
