@@ -110,6 +110,14 @@ async def on_message(message):
             await info_message(token.upper(), message)
         return
 
+    if tokens[0] == "portfolio":
+        await portfolio_message(message)
+        return
+
+    if tokens[0] == "help":
+        await help_message(message)
+        return
+
     for token in tokens:
         ticker = token.upper()
         await ticker_message(ticker, message)
@@ -184,7 +192,7 @@ async def chart_message(ticker, message):
         print("CHART", ticker)
         await message.channel.send(file=discord.File('stonks.jpg'))
         if ticker.upper() == "PORTFOLIO":
-            await message.channel.send(f"Portfolio value: ${broker.get_curr_val():,.2f}")
+            await message.channel.send(f"Portfolio value: ${broker.get_curr_val():,.2f} (`stonks portfolio` for full holdings)")
         else:
             await ticker_message(ticker.upper(), message, quote=quote)
 
@@ -226,6 +234,27 @@ async def portfolio_message(message):
     msg += f"\nCash Balance:          ${broker.balance:,.2f}\n"
     msg += f"Total portfolio value: ${total:,.2f}\n"
     msg += "```"
+    await message.channel.send(msg)
+
+
+async def help_message(message):
+    msg =  "Usage for stonks-bot:\n```"
+    msg += "stonks help                     : display this message\n"
+    msg += "\n### Stock Watching ###\n"
+    msg += "stonks TICKER1 TICKER2...       : get quote for specified tickers\n"
+    msg += "stonks info TICKER1 TICKER2...  : get company info for specified tickers\n"
+    msg += "stonks chart TICKER             : draw chart for specified ticker\n"
+    msg += "stonks status TICKER            : watch company (or PORTFOLIO) in bot status\n"
+    msg += "\n### Paper Trading ###\n"
+    msg += "stonks buy TICKER1 QTY1 TICKER2 QTY2...\n"
+    msg += "    buy shares (or add to order queue to execute at market open)\n"
+    msg += "stonks sell TICKER1 QTY1 TICKER2 QTY2...\n"
+    msg += "    sell shares (or add to order queue to execute at market open)\n"
+    msg += "stonks portfolio                : get current holdings information\n"
+    msg += "stonks info portfolio           : also get current holdings information\n"
+    msg += "stonks chart portfolio          : draw chart of holdings value over time\n"
+    msg += "```"
+
     await message.channel.send(msg)
 
 ticker_status.start()
