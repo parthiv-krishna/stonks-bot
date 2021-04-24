@@ -140,6 +140,14 @@ async def ticker_message(ticker, message, quote="default"):
 
 @loop(seconds=STATUS_UPDATE_SECS)
 async def ticker_status():
+    await client.wait_until_ready()
+    stonks_channel = client.get_channel(int(os.getenv('STONKS_CHANNEL')))
+
+    if broker.order_queue and broker.market_is_open():
+        msg = await stonks_channel.send("Executing order queue")
+        broker.execute_queue_orders()
+        portfolio_message(msg)
+    
     if status_ticker == "PORTFOLIO":
         quote = {}
         quote['c'] = broker.get_curr_val()
@@ -148,7 +156,6 @@ async def ticker_status():
         quote['pc'] = 0
 
     else:
-        await client.wait_until_ready()
         quote = get_quote(status_ticker)
 
     if quote == None:
@@ -158,7 +165,6 @@ async def ticker_status():
     print("STATUS", stat)
     game = discord.Activity(name=stat, type=discord.ActivityType.watching)
     await client.change_presence(status=discord.Status.online, activity=game)
-    stonks_channel = client.get_channel(int(os.getenv('STONKS_CHANNEL')))
     new_name = "stonks" if quote['c'] > quote['pc'] else "unstonks"
     if new_name != stonks_channel.name:
         print("Updating channel name to: " + new_name)
@@ -183,6 +189,10 @@ async def chart_message(ticker, message):
             await ticker_message(ticker.upper(), message, quote=quote)
 
 async def info_message(symbol, message):
+    if symbol == "PORTFOLIO":
+        await portfolio_message(message)
+        return
+
     url = 'https://www.alphavantage.co/query?function=OVERVIEW&symbol=' + symbol + '&apikey=' + ALPHAVANTAGE_KEY
     response = requests.get(url)
     info = response.json()
@@ -194,6 +204,20 @@ async def info_message(symbol, message):
     first_sentence = desc[:period+1]
     msg = "Info for **" + symbol + "**: " + first_sentence + " [Open attached file for full info]"
     await message.channel.send(msg, file=discord.File('stonks.txt'))
+
+async def portfolio_message(message):
+    msg = "Current portfolio: \n```"
+    total = broker.balance
+    if broker.owned_shares:
+        prices = broker.get_curr_prices(broker.owned_shares)
+        for ticker in broker.owned_shares:
+            msg += f"{ticker.ljust(5)}  {str(broker.owned_shares[ticker]).rjust(7)}@${str(broker.cost_basis[ticker]).ljust(10)}"
+            msg += f" Current: ${str(prices[ticker])} (total: "
+            subtotal = prices[ticker] * broker.owned_shares[ticker]
+            msg += f"${subtotal:,.2f})\n"
+            total += subtotal
+    msg += "```"
+    await message.channel.send(msg)
 
 ticker_status.start()
 client.run(TOKEN)

@@ -131,3 +131,6 @@ dmypy.json
 # Output from chart and info
 stonks.jpg
 stonks.txt
+
+# Paper trading data
+broker.pickle

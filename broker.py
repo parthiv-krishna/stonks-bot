@@ -1,9 +1,10 @@
 import requests
 import json
 import os
-from datetime import date
-import queue
+from datetime import date, datetime
+from collections import deque
 import plotly.graph_objs as go
+import pickle
 
 def save(func):
     def wrapper(*args, **kwargs):
@@ -13,19 +14,23 @@ def save(func):
         return rval
     return wrapper
 
-
 class Broker():
 
     def __init__(self, FINANCIAL_MODELING_API_KEYS, starting_amount = float(1000000), pickle_file = 'broker_data.pickle'):
         """Takes list of api keys to use and starting amount"""
-        self._curr_key_idx = 0
-        self.balance = starting_amount
 
+        self.TEST_MODE = True
+
+        self.balance = starting_amount
         self.owned_shares = {}
         self.cost_basis = {}
         self.portfolio_history = {}
+        self.order_queue = deque()
+        
+        # updates data from pickle
+        self.load_data()
 
-        self.order_queue = queue.Queue()
+        self._curr_key_idx = 0
 
         if isinstance(FINANCIAL_MODELING_API_KEYS, str):
             self.FINANCIAL_MODELING_API_KEYS = [FINANCIAL_MODELING_API_KEYS]
@@ -55,10 +60,11 @@ class Broker():
 
         return prices
 
+    @save
     def execute_queue_orders(self):
         if self.market_is_open():
-            while not self.order_queue.empty():
-                order_type, order = self.order_queue.get()
+            while self.order_queue:
+                order_type, order = self.order_queue.popleft()
                 if order_type == 'BUY':
                     self.buy_stocks(order)
                 else:
@@ -69,6 +75,7 @@ class Broker():
         self._curr_key_idx = (self._curr_key_idx + 1) % len(self.FINANCIAL_MODELING_API_KEYS)
         return self.FINANCIAL_MODELING_API_KEYS[self._curr_key_idx]
 
+    @save
     def buy_stocks(self, buy_order):
         """Takes dictionary buy_order, mapping from ticker symbol to number of shares to buy, then buys one at a time"""
         buy_info = []
@@ -97,12 +104,13 @@ class Broker():
                 else:
                     buy_info.append(f'Cannot afford {buy_order[ticker]} shares of {ticker}. Current balance: ${self.balance:.2f}')
         else: # market not open, add order to queue
-            self.order_queue.put(('BUY', buy_order))
+            self.order_queue.append(('BUY', buy_order))
             buy_info.append('Market not open, adding buy order to queue. Here is your order:')
             for ticker in prices:
                 buy_info.append(f'BUY {buy_order[ticker]} shares of {ticker} at roughly ${prices[ticker]:.2f} per share.')
         return buy_info
 
+    @save
     def sell_stocks(self, sell_order):
         """Takes dictionary sell_order, mapping from ticker symbol to number of shares to sell"""
         sell_info = []
@@ -117,9 +125,11 @@ class Broker():
                     gain = sell_order[ticker] * prices[ticker]
                     self.owned_shares[ticker] -= sell_order[ticker]
                     self.balance += gain
+                    if (self.owned_shares[ticker] == 0):
+                        self.owned_shares.pop(ticker, None)
                     sell_info.append(f'Sold {sell_order[ticker]} shares of {ticker} at price ${prices[ticker]:.2f} for a total of ${gain:.2f}.')
         else: # market not open
-            self.order_queue.put(('SELL', sell_order))
+            self.order_queue.append(('SELL', sell_order))
             sell_info.append('Market not open, adding sell order to queue. Here is your order:')
             for ticker in prices:
                 sell_info.append(f'SELL {sell_order[ticker]} shares of {ticker} at roughly ${prices[ticker]:.2f} per share.')
@@ -128,8 +138,6 @@ class Broker():
 
     def get_curr_val(self):
         """Returns current portfolio value, updates portfolio history with current value"""
-        self.execute_queue_orders()
-
         total = self.balance
 
         if self.owned_shares:
@@ -141,6 +149,7 @@ class Broker():
 
         return total
 
+    @save
     def update_history(self, total):
         d = date.today().strftime("%d/%m/%Y")
         if d not in self.portfolio_history:
@@ -154,6 +163,10 @@ class Broker():
 
 
     def market_is_open(self):
+        if self.TEST_MODE:
+            now = datetime.now()
+            return (now.minute % 2 == 0)
+        
         params = { 'apikey' : self.get_curr_key() }
         response = requests.get('https://financialmodelingprep.com/api/v3/is-the-market-open', params)
         if response.status_code != 200:
@@ -188,4 +201,25 @@ class Broker():
         fig.write_image(file)
 
     def pickle_data(self):
-        pass
+        print("saving data")
+        data = {
+            'balance': self.balance,
+            'owned_shares': self.owned_shares,
+            'cost_basis': self.cost_basis,
+            'portfolio_history': self.portfolio_history,
+            'order_queue': self.order_queue
+        }
+        with open('broker.pickle', 'wb') as f:
+            pickle.dump(data, f)
+
+    def load_data(self):
+        try:
+            with open('broker.pickle', 'rb') as f:
+                data = pickle.load(f)
+                self.balance = data['balance']
+                self.owned_shares = data['owned_shares']
+                self.cost_basis = data['cost_basis']
+                self.portfolio_history = data['portfolio_history']
+                self.order_queue = data['order_queue']
+        except:
+            pass
