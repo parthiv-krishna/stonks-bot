@@ -16,10 +16,10 @@ def save(func):
 
 class Broker():
 
-    def __init__(self, FINANCIAL_MODELING_API_KEYS, starting_amount = float(1000000), pickle_file = 'broker_data.pickle'):
+    def __init__(self, FINANCIAL_MODELING_API_KEYS, test_mode=False, starting_amount = float(1000000), pickle_file = 'broker_data.pickle'):
         """Takes list of api keys to use and starting amount"""
 
-        self.TEST_MODE = True
+        self.TEST_MODE = test_mode
 
         self.balance = starting_amount
         self.owned_shares = {}
@@ -36,6 +36,9 @@ class Broker():
             self.FINANCIAL_MODELING_API_KEYS = [FINANCIAL_MODELING_API_KEYS]
         else:
             self.FINANCIAL_MODELING_API_KEYS = list(FINANCIAL_MODELING_API_KEYS)
+
+
+        print(self.FINANCIAL_MODELING_API_KEYS, len(self.FINANCIAL_MODELING_API_KEYS))
 
     def get_curr_prices(self, tickers):
         """Takes iterable of UPPERCASE ticker symbols, then returns dictionary of prices corresponding to those tickers"""

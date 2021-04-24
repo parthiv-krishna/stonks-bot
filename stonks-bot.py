@@ -20,6 +20,8 @@ UNSTONKS_EMOJI = os.getenv('UNSTONKS_EMOJI')
 STATUS_UPDATE_SECS = int(os.getenv('STATUS_UPDATE_SECS'))
 INFO_WIDTH = int(os.getenv('INFO_WIDTH'))
 
+TEST_MODE = bool(os.getenv('TEST_MODE'))
+
 status_ticker = os.getenv('STATUS_TICKER')
 pfp_panik = bytearray(open("pfp/panik.jpg", 'rb').read())
 pfp_kalm = bytearray(open("pfp/kalm.jpg", 'rb').read())
@@ -27,7 +29,7 @@ pfp_kalm = bytearray(open("pfp/kalm.jpg", 'rb').read())
 
 client = discord.Client()
 
-broker = Broker(FINANCIALMODELING_KEYS)
+broker = Broker(FINANCIALMODELING_KEYS, test_mode=TEST_MODE)
 
 @client.event
 async def on_ready():
@@ -154,7 +156,7 @@ async def ticker_status():
     if broker.order_queue and broker.market_is_open():
         msg = await stonks_channel.send("Executing order queue")
         broker.execute_queue_orders()
-        portfolio_message(msg)
+        await portfolio_message(msg)
     
     if status_ticker == "PORTFOLIO":
         quote = {}
