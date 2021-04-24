@@ -211,11 +211,20 @@ async def portfolio_message(message):
     if broker.owned_shares:
         prices = broker.get_curr_prices(broker.owned_shares)
         for ticker in broker.owned_shares:
-            msg += f"{ticker.ljust(5)}  {str(broker.owned_shares[ticker]).rjust(7)}@${str(broker.cost_basis[ticker]).ljust(10)}"
-            msg += f" Current: ${str(prices[ticker])} (total: "
+            n_shares = broker.owned_shares[ticker]
+            cost = broker.cost_basis[ticker]
+            msg += f"{ticker.ljust(5)}{str(n_shares).rjust(6)}@${str(cost).ljust(7)}"
+            price = prices[ticker]
+            price_str = f"{price:,.2f}"
+            msg += f" Current: ${price_str.ljust(7)} (total: "
             subtotal = prices[ticker] * broker.owned_shares[ticker]
-            msg += f"${subtotal:,.2f})\n"
+            subtotal_str = f"{subtotal:,.2f}"
+            percent = ((price - cost)/cost) * 100
+            percent_str = f"+{percent:.2f}" if percent > 0 else f"-{percent:.2f}"
+            msg += f"${subtotal_str.ljust(10)} | {percent_str}%)\n"
             total += subtotal
+    msg += f"\nCash Balance:          ${broker.balance:,.2f}\n"
+    msg += f"Total portfolio value: ${total:,.2f}\n"
     msg += "```"
     await message.channel.send(msg)
 
