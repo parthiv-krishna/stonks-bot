@@ -82,12 +82,12 @@ class Broker():
         prices = self.get_curr_prices(buy_order)
         if self.market_is_open():
             for ticker in prices:
-                if ticker not in self.owned_shares:
-                    self.owned_shares[ticker] = 0
-                    self.cost_basis[ticker] = 0
-
                 cost = buy_order[ticker] * prices[ticker]
                 if cost < self.balance:
+
+                    if ticker not in self.owned_shares:
+                        self.owned_shares[ticker] = 0
+                        self.cost_basis[ticker] = 0
 
                     prev_total = self.owned_shares[ticker] * self.cost_basis[ticker]
 
