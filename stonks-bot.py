@@ -59,8 +59,16 @@ async def on_message(message):
         if len(tokens) < 2:
             await message.channel.send("Please provide a ticker to chart.")
             return
-        if len(tokens) > 2:
+        if len(tokens) > 3:
             await message.channel.send(f"Only charting {tokens[1].upper()}.")
+        if len(tokens) == 2:
+            await message.channel.send("Defaulting to month timescale.")
+        else:
+            if tokens[2].upper() in "WMYF" and len(tokens[2]) == 1:
+                await chart_message(tokens[1], message, time_span=tokens[2])
+                return
+            else:
+                await message.channel.send(f"Unrecognized timescale {tokens[2]}. (`W`, `M`, `Y`, `F` supported). Defaulting to `M` (month)")
         await chart_message(tokens[1], message)
         return
 
@@ -183,12 +191,12 @@ async def ticker_status():
         await client.user.edit(avatar=new_pfp)
         print("Changing picture")
 
-async def chart_message(ticker, message):
+async def chart_message(ticker, message, time_span="M"):
     quote = get_quote(ticker.upper())
     async with message.channel.typing():
         if ticker.upper() == "PORTFOLIO":
             broker.save_chart_of_portfolio_history()
-        elif not save_chart(ticker, realtime=quote):
+        elif not save_chart(ticker, realtime=quote, time_span=time_span):
             await(message.channel.send(ticker.upper() + " not found."))
             return
         print("CHART", ticker)
