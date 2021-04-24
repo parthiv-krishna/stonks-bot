@@ -65,7 +65,7 @@ async def on_message(message):
             await message.channel.send("Defaulting to month timescale.")
         else:
             if tokens[2].upper() in "WMYF" and len(tokens[2]) == 1:
-                await chart_message(tokens[1], message, time_span=tokens[2])
+                await chart_message(tokens[1], message, time_span=tokens[2].upper())
                 return
             else:
                 await message.channel.send(f"Unrecognized timescale {tokens[2]}. (`W`, `M`, `Y`, `F` supported). Defaulting to `M` (month)")
@@ -253,13 +253,14 @@ async def help_message(message):
     msg += "\n### Stock Watching ###\n"
     msg += "stonks TICKER1 TICKER2...       : get quote for specified tickers\n"
     msg += "stonks info TICKER1 TICKER2...  : get company info for specified tickers\n"
-    msg += "stonks chart TICKER             : draw chart for specified ticker\n"
+    msg += "stonks chart TICKER TIMESCALE   : draw chart for specified ticker\n"
+    msg += "    +---- available timescales  : W (week), M (month), Y (year), F (full)\n"
     msg += "stonks status TICKER            : watch company (or PORTFOLIO) in bot status\n"
     msg += "\n### Paper Trading ###\n"
     msg += "stonks buy TICKER1 QTY1 TICKER2 QTY2...\n"
-    msg += "    buy shares (or add to order queue to execute at market open)\n"
+    msg += "    +---- buy shares (or add to order queue to execute at market open)\n"
     msg += "stonks sell TICKER1 QTY1 TICKER2 QTY2...\n"
-    msg += "    sell shares (or add to order queue to execute at market open)\n"
+    msg += "    +---- sell shares (or add to order queue to execute at market open)\n"
     msg += "stonks portfolio                : get current holdings information\n"
     msg += "stonks info portfolio           : also get current holdings information\n"
     msg += "stonks chart portfolio          : draw chart of holdings value over time\n"
