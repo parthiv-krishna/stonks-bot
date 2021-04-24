@@ -86,6 +86,9 @@ async def on_message(message):
             ticker = tokens[i].upper()
             try:
                 count = int(tokens[i+1])
+                if count <= 0:
+                    await message.channel.send(f"Shorting is not supported. Skipping order for {count}x{ticker}")
+                    continue
             except:
                 await message.channel.send("Buy format: `stonks buy ABC 1 DEFG 2 H 3`")
                 return
@@ -105,6 +108,9 @@ async def on_message(message):
             ticker = tokens[i].upper()
             try:
                 count = int(tokens[i+1])
+                if count <= 0:
+                    await message.channel.send(f"Shorting is not supported. Skipping order for {count}x{ticker}")
+                    continue
             except:
                 await message.channel.send("Buy format: `stonks sell ABC 1 DEFG 2 H 3`")
                 return
