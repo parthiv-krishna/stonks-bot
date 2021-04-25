@@ -20,7 +20,7 @@ UNSTONKS_EMOJI = os.getenv('UNSTONKS_EMOJI')
 STATUS_UPDATE_SECS = int(os.getenv('STATUS_UPDATE_SECS'))
 INFO_WIDTH = int(os.getenv('INFO_WIDTH'))
 
-TEST_MODE = bool(os.getenv('TEST_MODE'))
+TEST_MODE = (os.getenv('TEST_MODE') == 'True')
 
 status_ticker = os.getenv('STATUS_TICKER')
 pfp_panik = bytearray(open("pfp/panik.jpg", 'rb').read())
@@ -164,9 +164,11 @@ async def ticker_message(ticker, message, quote="default"):
 
 @loop(seconds=STATUS_UPDATE_SECS)
 async def ticker_status():
-    await client.wait_until_ready()
+    if not client.is_ready():
+        await client.wait_until_ready()
+        stonks_channel = client.get_channel(int(os.getenv('STONKS_CHANNEL')))
+        await stonks_channel.send("stonks bot active in " + ("test" if TEST_MODE else "live") + " mode. send `stonks help` for a list of commands")
     stonks_channel = client.get_channel(int(os.getenv('STONKS_CHANNEL')))
-
     if broker.order_queue and broker.market_is_open():
         msg = await stonks_channel.send("Executing order queue")
         broker.execute_queue_orders()

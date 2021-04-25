@@ -39,6 +39,7 @@ class Broker():
 
 
         print(self.FINANCIAL_MODELING_API_KEYS, len(self.FINANCIAL_MODELING_API_KEYS))
+        print("test mode" if self.TEST_MODE else "live mode")
 
     def get_curr_prices(self, tickers):
         """Takes iterable of UPPERCASE ticker symbols, then returns dictionary of prices corresponding to those tickers"""
