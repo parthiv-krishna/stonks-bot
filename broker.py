@@ -47,10 +47,12 @@ class Broker():
         if not tickers:
             raise Exception('Empty list of tickers given')
 
-        params = { 'apikey' : self.get_curr_key() }
+        key = self.get_curr_key()
+        params = { 'apikey' : key }
         response = requests.get('https://financialmodelingprep.com/api/v3/quote/' + ','.join(tickers), params)
 
         if response.status_code != 200:
+            print("Key: '" + key + "'")
             raise Exception(f"Bad response code, response code {response.status_code}")
 
         data = response.json()
@@ -171,9 +173,11 @@ class Broker():
             now = datetime.now()
             return (now.minute % 2 == 0)
         
-        params = { 'apikey' : self.get_curr_key() }
+        key = self.get_curr_key()
+        params = { 'apikey' : key }
         response = requests.get('https://financialmodelingprep.com/api/v3/is-the-market-open', params)
         if response.status_code != 200:
+            print("Key: '" + key + "'")
             raise Exception(f"Bad response code, response code {response.status_code}")
 
         data = response.json()
