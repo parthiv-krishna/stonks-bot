@@ -1,7 +1,7 @@
 import requests
 import json
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from collections import deque
 import plotly.graph_objs as go
 import pickle
@@ -37,9 +37,28 @@ class Broker():
         else:
             self.FINANCIAL_MODELING_API_KEYS = list(FINANCIAL_MODELING_API_KEYS)
 
-
-        print(self.FINANCIAL_MODELING_API_KEYS, len(self.FINANCIAL_MODELING_API_KEYS))
-        print("test mode" if self.TEST_MODE else "live mode")
+#    def get_curr_prices(self, tickers):
+#        """Takes iterable of UPPERCASE ticker symbols, then returns dictionary of prices corresponding to those tickers"""
+#        
+#        if not tickers:
+#            raise Exception('Empty list of tickers given')
+#
+#        params = { 'apikey' : self.get_curr_key() }
+#        response = requests.get('https://financialmodelingprep.com/api/v3/quote/' + ','.join(tickers), params)
+#
+#        if response.status_code != 200:
+#            raise Exception(f"Bad response code, response code {response.status_code}")
+#
+#        data = response.json()
+#
+#        if 'Error Message' in data:
+#            raise Exception('Unable to get ticker info from https://financialmodelingprep.com/api/v3/quote/')
+#
+#        prices = {}
+#        for stock in data:
+#            prices[stock['symbol']] = stock['price']
+#            
+#        return prices
 
     def get_curr_prices(self, tickers):
         """Takes iterable of UPPERCASE ticker symbols, then returns dictionary of prices corresponding to those tickers"""
@@ -47,24 +66,25 @@ class Broker():
         if not tickers:
             raise Exception('Empty list of tickers given')
 
-        key = self.get_curr_key()
-        params = { 'apikey' : key }
-        response = requests.get('https://financialmodelingprep.com/api/v3/quote/' + ','.join(tickers), params)
-
-        if response.status_code != 200:
-            print("Key: '" + key + "'")
-            raise Exception(f"Bad response code, response code {response.status_code}")
-
-        data = response.json()
-
-        if 'Error Message' in data:
-            raise Exception('Unable to get ticker info from https://financialmodelingprep.com/api/v3/quote/')
-
         prices = {}
-        for stock in data:
-            prices[stock['symbol']] = stock['price']
+
+        for ticker in tickers:
+            params = { 'apikey' : self.get_curr_key() }
+            response = requests.get('https://financialmodelingprep.com/api/v3/quote/' + ticker, params)
+
+            if response.status_code != 200:
+                raise Exception(f"Bad response code, response code {response.status_code}")
+
+            data = response.json()
+
+            if 'Error Message' in data:
+                raise Exception('Unable to get ticker info from https://financialmodelingprep.com/api/v3/quote/')
+
+            for stock in data: # 0 or 1 iterations
+                prices[stock['symbol']] = stock['price']
 
         return prices
+
 
     @save
     def execute_queue_orders(self):
@@ -108,12 +128,12 @@ class Broker():
                     buy_info.append(f'Bought {buy_order[ticker]} shares of {ticker} at price ${prices[ticker]:.2f} for a total of ${cost:.2f}.')
 
                 else:
-                    buy_info.append(f'Cannot afford {buy_order[ticker]} shares of {ticker}. Current balance: ${self.balance:.2f}')
+                    buy_info.append(f'Cannot afford {buy_order[ticker]} shares of {ticker} for total cost of ${cost:.2f}. Current balance: ${self.balance:.2f}')
         else: # market not open, add order to queue
             self.order_queue.append(('BUY', buy_order))
             buy_info.append('Market not open, adding buy order to queue. Here is your order:')
             for ticker in prices:
-                buy_info.append(f'BUY {buy_order[ticker]} shares of {ticker} at roughly ${prices[ticker]:.2f} per share.')
+                buy_info.append(f'BUY {buy_order[ticker]} shares of {ticker} at roughly ${prices[ticker]:.2f} per share for a total of ${(prices[ticker] * buy_order[ticker]):.2f}.')
         return buy_info
 
     @save
@@ -131,14 +151,15 @@ class Broker():
                     gain = sell_order[ticker] * prices[ticker]
                     self.owned_shares[ticker] -= sell_order[ticker]
                     self.balance += gain
-                    if (self.owned_shares[ticker] == 0):
+                    if self.owned_shares[ticker] == 0:
                         self.owned_shares.pop(ticker, None)
+                        self.cost_basis.pop(ticker, None)
                     sell_info.append(f'Sold {sell_order[ticker]} shares of {ticker} at price ${prices[ticker]:.2f} for a total of ${gain:.2f}.')
         else: # market not open
             self.order_queue.append(('SELL', sell_order))
             sell_info.append('Market not open, adding sell order to queue. Here is your order:')
             for ticker in prices:
-                sell_info.append(f'SELL {sell_order[ticker]} shares of {ticker} at roughly ${prices[ticker]:.2f} per share.')
+                sell_info.append(f'SELL {sell_order[ticker]} shares of {ticker} at roughly ${prices[ticker]:.2f} per share for a total of ${(prices[ticker] * sell_order[ticker]):.2f}.')
 
         return sell_info
 
@@ -157,7 +178,7 @@ class Broker():
 
     @save
     def update_history(self, total):
-        d = date.today().strftime("%d/%m/%Y")
+        d = date.today().strftime("%m/%d/%Y")
         if d not in self.portfolio_history:
             self.portfolio_history[d] = { 'open' : total, 'high' : total, 'low' : total, 'close' : total }
         if total < self.portfolio_history[d]['low']:
@@ -173,29 +194,40 @@ class Broker():
             now = datetime.now()
             return (now.minute % 2 == 0)
         
-        key = self.get_curr_key()
-        params = { 'apikey' : key }
+        params = { 'apikey' : self.get_curr_key() }
         response = requests.get('https://financialmodelingprep.com/api/v3/is-the-market-open', params)
         if response.status_code != 200:
-            print("Key: '" + key + "'")
             raise Exception(f"Bad response code, response code {response.status_code}")
 
         data = response.json()
         return data['isTheStockMarketOpen']
 
-    def save_chart_of_portfolio_history(self, file = "stonks.jpg"):
+    def save_chart_of_portfolio_history(self, time_span = 'M', file = "stonks.jpg"):
+        """time_span options: 'W' : week, 'M' : month, 'Y' : year, 'F' : full """
         dates = []
         open_prices = []
         high_prices = []
         low_prices = []
         close_prices = []
 
-        for date in self.portfolio_history:
-            dates.append(date)
-            open_prices.append(self.portfolio_history[date]['open'])
-            high_prices.append(self.portfolio_history[date]['high'])
-            low_prices.append(self.portfolio_history[date]['low'])
-            close_prices.append(self.portfolio_history[date]['close'])
+        if time_span == 'W':
+            delta = timedelta(days = -7)
+        elif time_span == 'M':
+            delta = timedelta(days = -30)
+        elif time_span == 'Y':
+            delta = timedelta(days = -365)
+        else:
+            delta = timedelta(days = -30) # default 
+        start_date_obj = datetime.now().date() + delta
+        for d in self.portfolio_history:
+            date_obj = datetime.strptime(d, "%m/%d/%Y").date()
+
+            if date_obj > start_date_obj or time_span == 'F':
+                dates.append(d)
+                open_prices.append(self.portfolio_history[d]['open'])
+                high_prices.append(self.portfolio_history[d]['high'])
+                low_prices.append(self.portfolio_history[d]['low'])
+                close_prices.append(self.portfolio_history[d]['close'])
             
         candlestick_data = [go.Candlestick(x=dates, open=open_prices, high=high_prices, low=low_prices, close=close_prices)]
 
