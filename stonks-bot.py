@@ -43,25 +43,25 @@ async def on_message(message):
     if not message.content.lower().startswith('stonks'):
         return
     
-    tokens = message.content.strip().split(' ')[1:]
+    tokens = [tok for tok in message.content.strip().split(' ')[1:] if tok]
 
     if len(tokens) == 0:
         return
 
-    if tokens[0] == "status":
+    if tokens[0].lower() == "status":
         global status_ticker
         status_ticker = tokens[1].upper()
         await ticker_status()
         await message.channel.send(f"Updated status to track {status_ticker}.")
         return
     
-    if tokens[0] == "chart":
+    if tokens[0].lower() == "chart":
         if len(tokens) < 2:
             await message.channel.send("Please provide a ticker to chart.")
             return
         if len(tokens) > 3:
             await message.channel.send(f"Only charting {tokens[1].upper()}.")
-        if len(tokens) == 2:
+        if len(tokens) == 2 and tokens[1].upper() != "PORTFOLIO":
             await message.channel.send("Defaulting to month timescale.")
         else:
             if tokens[2].upper() in "WMYF" and len(tokens[2]) == 1:
@@ -72,12 +72,12 @@ async def on_message(message):
         await chart_message(tokens[1], message)
         return
 
-    if tokens[0] == "info":
+    if tokens[0].lower() == "info":
         for token in tokens[1:]:
             await info_message(token.upper(), message)
         return
 
-    if tokens[0] == "buy":
+    if tokens[0].lower() == "buy":
         buy_orders = {}
         if len(tokens) % 2 == 0:
             await message.channel.send("Buy format: `stonks buy ABC 1 DEFG 2 H 3`")
@@ -99,7 +99,7 @@ async def on_message(message):
         await message.channel.send(f"Available cash balance: ${broker.balance:,.2f}")
         return
 
-    if tokens[0] == "sell":
+    if tokens[0].lower() == "sell":
         sell_orders = {}
         if len(tokens) % 2 == 0:
             await message.channel.send("Sell format: `stonks sell ABC 1 DEFG 2 H 3`")
@@ -121,16 +121,16 @@ async def on_message(message):
         await message.channel.send(f"Available cash balance: ${broker.balance:,.2f}")
         return
     
-    if tokens[0] == "info":
+    if tokens[0].lower() == "info":
         for token in tokens[1:]:
             await info_message(token.upper(), message)
         return
 
-    if tokens[0] == "portfolio":
+    if tokens[0].lower() == "portfolio":
         await portfolio_message(message)
         return
 
-    if tokens[0] == "help":
+    if tokens[0].lower() == "help":
         await help_message(message)
         return
 
