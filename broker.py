@@ -37,28 +37,6 @@ class Broker():
         else:
             self.FINANCIAL_MODELING_API_KEYS = list(FINANCIAL_MODELING_API_KEYS)
 
-#    def get_curr_prices(self, tickers):
-#        """Takes iterable of UPPERCASE ticker symbols, then returns dictionary of prices corresponding to those tickers"""
-#        
-#        if not tickers:
-#            raise Exception('Empty list of tickers given')
-#
-#        params = { 'apikey' : self.get_curr_key() }
-#        response = requests.get('https://financialmodelingprep.com/api/v3/quote/' + ','.join(tickers), params)
-#
-#        if response.status_code != 200:
-#            raise Exception(f"Bad response code, response code {response.status_code}")
-#
-#        data = response.json()
-#
-#        if 'Error Message' in data:
-#            raise Exception('Unable to get ticker info from https://financialmodelingprep.com/api/v3/quote/')
-#
-#        prices = {}
-#        for stock in data:
-#            prices[stock['symbol']] = stock['price']
-#            
-#        return prices
 
     def get_curr_prices(self, tickers):
         """Takes iterable of UPPERCASE ticker symbols, then returns dictionary of prices corresponding to those tickers"""
@@ -70,7 +48,7 @@ class Broker():
 
         for ticker in tickers:
             params = { 'apikey' : self.get_curr_key() }
-            response = requests.get('https://financialmodelingprep.com/api/v3/quote/' + ticker, params)
+            response = self.make_request('https://financialmodelingprep.com/api/v3/quote/' + ticker, params)
 
             if response.status_code != 200:
                 raise Exception(f"Bad response code, response code {response.status_code}")
@@ -85,6 +63,14 @@ class Broker():
 
         return prices
 
+    def make_request(self, url, params):
+        '''Makes request, tries until success (unless no keys work), params should not include apikey, although it won't matter too much'''
+        for try_num in range(len(self.FINANCIAL_MODELING_API_KEYS)):
+            params['apikey'] = self.get_curr_key()
+            response = requests.get(url, params)
+            if response.status_code == 200:
+                return response
+        raise Exception(f'Attempted to make request to URL {url} but there are no api keys with uses left.')
 
     @save
     def execute_queue_orders(self):
@@ -195,7 +181,7 @@ class Broker():
             return (now.minute % 2 == 0)
         
         params = { 'apikey' : self.get_curr_key() }
-        response = requests.get('https://financialmodelingprep.com/api/v3/is-the-market-open', params)
+        response = self.make_request('https://financialmodelingprep.com/api/v3/is-the-market-open', params)
         if response.status_code != 200:
             raise Exception(f"Bad response code, response code {response.status_code}")
 
