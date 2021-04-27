@@ -239,14 +239,15 @@ async def portfolio_message(message):
         for ticker in broker.owned_shares:
             n_shares = broker.owned_shares[ticker]
             cost = broker.cost_basis[ticker]
-            msg += f"{ticker.ljust(5)}{str(n_shares).rjust(6)}@${str(cost).ljust(7)}"
+            cost_str = f"{cost:.2f}"
+            msg += f"{ticker.ljust(5)}{str(n_shares).rjust(6)}@${cost_str.ljust(7)}"
             price = prices[ticker]
             price_str = f"{price:,.2f}"
             msg += f" Current: ${price_str.ljust(7)} (total: "
             subtotal = prices[ticker] * broker.owned_shares[ticker]
             subtotal_str = f"{subtotal:,.2f}"
             percent = ((price - cost)/cost) * 100
-            percent_str = f"+{percent:.2f}" if percent > 0 else f"-{percent:.2f}"
+            percent_str = f"+{percent:.2f}" if percent > 0 else f"{percent:.2f}"
             msg += f"${subtotal_str.ljust(10)} | {percent_str}%)\n"
             total += subtotal
     msg += f"\nCash Balance:          ${broker.balance:,.2f}\n"
