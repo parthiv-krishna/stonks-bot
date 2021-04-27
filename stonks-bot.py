@@ -61,8 +61,10 @@ async def on_message(message):
             return
         if len(tokens) > 3:
             await message.channel.send(f"Only charting {tokens[1].upper()}.")
-        if len(tokens) == 2 and tokens[1].upper() != "PORTFOLIO":
-            await message.channel.send("Defaulting to month timescale.")
+        if len(tokens) == 2:
+            tokens.append("M")
+            if tokens[1].upper() != "PORTFOLIO":
+                await message.channel.send("Defaulting to month timescale.")
         else:
             if tokens[2].upper() in "WMYF" and len(tokens[2]) == 1:
                 await chart_message(tokens[1], message, time_span=tokens[2].upper())
@@ -132,6 +134,10 @@ async def on_message(message):
 
     if tokens[0].lower() == "help":
         await help_message(message)
+        return
+
+    if tokens[0].lower() == "queue":
+        await queue_message(message)
         return
 
     for token in tokens:
@@ -275,6 +281,16 @@ async def help_message(message):
     msg += "stonks chart portfolio          : draw chart of holdings value over time\n"
     msg += "```"
 
+    await message.channel.send(msg)
+
+async def queue_message(message):
+    msg = "Order queue: ```\n"
+    for i, order in enumerate(broker.order_queue):
+        msg += f"{i} ({order[0]}): "
+        for ticker in order[1]:
+            msg += f"{ticker} x{order[1][ticker]}   "
+        msg += "\n"
+    msg += "```Use `stonks queue remove i` to remove the `i`th order."
     await message.channel.send(msg)
 
 ticker_status.start()
