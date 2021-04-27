@@ -137,6 +137,15 @@ async def on_message(message):
         return
 
     if tokens[0].lower() == "queue":
+        if len(tokens) > 1 and tokens[1].lower() == "remove":
+            try:
+                idx = int(tokens[2])
+            except:
+                await message.channel.send("Please provide an order number to remove.")
+                return
+            await remove_order(idx, message)
+            return
+
         await queue_message(message)
         return
 
@@ -246,7 +255,7 @@ async def portfolio_message(message):
             n_shares = broker.owned_shares[ticker]
             cost = broker.cost_basis[ticker]
             cost_str = f"{cost:.2f}"
-            msg += f"{ticker.ljust(5)}{str(n_shares).rjust(6)}@${cost_str.ljust(7)}"
+            msg += f"{ticker.ljust(5)}{str(n_shares).rjust(6)} @ ${cost_str.ljust(9)}"
             price = prices[ticker]
             price_str = f"{price:,.2f}"
             msg += f" Current: ${price_str.ljust(7)} (total: "
@@ -268,14 +277,16 @@ async def help_message(message):
     msg += "\n### Stock Watching ###\n"
     msg += "stonks TICKER1 TICKER2...       : get quote for specified tickers\n"
     msg += "stonks info TICKER1 TICKER2...  : get company info for specified tickers\n"
-    msg += "stonks chart TICKER TIMESCALE   : draw chart for specified ticker\n"
-    msg += "    +---- available timescales  : W (week), M (month), Y (year), F (full)\n"
     msg += "stonks status TICKER            : watch company (or PORTFOLIO) in bot status\n"
+    msg += "stonks chart TICKER TIMESCALE   : draw chart for specified ticker\n"
+    msg += "    +---- available timescales  : W (week), M (month), Y (year), F (full)\n\n"
     msg += "\n### Paper Trading ###\n"
     msg += "stonks buy TICKER1 QTY1 TICKER2 QTY2...\n"
-    msg += "    +---- buy shares (or add to order queue to execute at market open)\n"
+    msg += "    +---- buy shares (or add to order queue to execute at market open)\n\n"
     msg += "stonks sell TICKER1 QTY1 TICKER2 QTY2...\n"
-    msg += "    +---- sell shares (or add to order queue to execute at market open)\n"
+    msg += "    +---- sell shares (or add to order queue to execute at market open)\n\n"
+    msg += "stonks queue                    : show the current order queue\n"
+    msg += "stonks queue remove i           : remove the i'th order from the queue\n"
     msg += "stonks portfolio                : get current holdings information\n"
     msg += "stonks info portfolio           : also get current holdings information\n"
     msg += "stonks chart portfolio          : draw chart of holdings value over time\n"
@@ -284,13 +295,25 @@ async def help_message(message):
     await message.channel.send(msg)
 
 async def queue_message(message):
-    msg = "Order queue: ```\n"
-    for i, order in enumerate(broker.order_queue):
-        msg += f"{i} ({order[0]}): "
-        for ticker in order[1]:
-            msg += f"{ticker} x{order[1][ticker]}   "
-        msg += "\n"
-    msg += "```Use `stonks queue remove i` to remove the `i`th order."
+    if broker.order_queue:   
+        msg = "Order queue: ```\n"
+        for i, order in enumerate(broker.order_queue):
+            msg += f"{i} ({order[0]}): "
+            for ticker in order[1]:
+                msg += f"{ticker} x{order[1][ticker]}   "
+            msg += "\n"
+        msg += "```Use `stonks queue remove i` to remove the `i`th order."
+    else:
+        msg += "Order queue is empty."
+    await message.channel.send(msg)
+
+async def remove_order(idx, message):
+    order = broker.remove_order(idx)
+    msg =  f"Removed order from the queue:\n"
+    msg += f"`{idx} ({order[0]}): "
+    for ticker in order[1]:
+        msg += f"{ticker} x{order[1][ticker]}   "
+    msg += '`\n `stonks queue` to see the updated queue.'
     await message.channel.send(msg)
 
 ticker_status.start()

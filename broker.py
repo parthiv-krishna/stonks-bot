@@ -240,6 +240,12 @@ class Broker():
 
         fig.write_image(file)
 
+    @save
+    def remove_order(self, idx):
+        order = self.order_queue[idx]
+        del self.order_queue[idx]
+        return order
+
     def pickle_data(self):
         print("saving data")
         data = {
