@@ -193,8 +193,10 @@ async def ticker_status():
         quote = {}
         quote['c'] = broker.get_curr_val()
         quote['symbol'] = ""
-        quote['percent'] = 0
-        quote['pc'] = 0
+        quote['pc'] = broker.get_prev_close()
+
+        percent = round((((quote['c'] / quote['pc']) - 1)*100), 2)
+        quote['percent'] = '+' + str(percent) if percent > 0 else str(percent)
 
     else:
         quote = get_quote(status_ticker)

@@ -162,6 +162,11 @@ class Broker():
 
         return total
 
+    def get_prev_close(self):
+        """Returns previous close value of the portfolio"""
+        prev_day = list(self.portfolio_history.keys())[-2]
+        return self.portfolio_history[prev_day]['close']
+
     @save
     def update_history(self, total):
         d = date.today().strftime("%m/%d/%Y")
