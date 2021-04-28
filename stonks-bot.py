@@ -41,6 +41,10 @@ async def on_message(message):
         return
 
     if not message.content.lower().startswith('stonks'):
+        if "unstonks" in message.content:
+            await message.add_reaction("unstonks:" + UNSTONKS_EMOJI)
+        elif "stonks" in message.content:
+            await message.add_reaction("stonks:" + STONKS_EMOJI)
         return
 
     async with message.channel.typing():
@@ -48,6 +52,7 @@ async def on_message(message):
         tokens = [tok for tok in message.content.strip().split(' ')[1:] if tok]
 
         if len(tokens) == 0:
+            await message.add_reaction("stonks:" + STONKS_EMOJI)
             return
 
         if tokens[0].lower() == "status":
