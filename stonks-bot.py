@@ -267,7 +267,7 @@ async def portfolio_message(message):
             msg += f"{ticker.ljust(5)}{str(n_shares).rjust(6)} @ ${cost_str.ljust(9)}"
             price = prices[ticker]
             price_str = f"{price:,.2f}"
-            msg += f" Current: ${price_str.ljust(7)} (total: "
+            msg += f" Current: ${price_str.ljust(8)} (total: "
             subtotal = prices[ticker] * broker.owned_shares[ticker]
             subtotal_str = f"{subtotal:,.2f}"
             percent = ((price - cost)/cost) * 100
