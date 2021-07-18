@@ -41,9 +41,9 @@ async def on_message(message):
         return
 
     if not message.content.lower().startswith('stonks'):
-        if "unstonks" in message.content:
+        if "unstonk" in message.content.lower():
             await message.add_reaction("unstonks:" + UNSTONKS_EMOJI)
-        elif "stonks" in message.content:
+        elif "stonk" in message.content.lower():
             await message.add_reaction("stonks:" + STONKS_EMOJI)
         return
 
