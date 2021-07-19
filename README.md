@@ -26,7 +26,7 @@ $ source .venv/bin/activate
 Python 3.10.0b4 ...
 ```
 
-If all went well, you should see version 3.10 when the venv is activated. Now, install the dependencies with pip.
+If all went well, you should see version 3.10 when the venv is activated. You can exit the Python interpreter by typing `exit()` then enter. Now, install the dependencies with pip.
 
 ```bash
 python -m pip install -r requirements.txt
