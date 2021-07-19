@@ -1,5 +1,5 @@
 # stonks-bot
-Discord bot with S&amp;P 500 info
+Discord bot with stock quotes, charts, and paper trading. The bot runs on Python 3.10, and makes use of the new `match` structural pattern matching feature.
 
 ## Usage
 
@@ -32,8 +32,16 @@ If all went well, you should see version 3.10 when the venv is activated. Now, i
 python -m pip install -r requirements.txt
 ```
 
-### 
+### Register bot with Discord
+Copy `sample.env` into a new file `.env` (or just rename `sample.env` to `.env`). Create a bot following [these instructions](https://discordpy.readthedocs.io/en/stable/discord.html#discord-intro). Finally, update `.env` with your Discord bot key, guild name (server name), and the ID for the channel you'd like `stonks-bot` to track.
 
-* Create a bot following [these instructions](https://discordpy.readthedocs.io/en/stable/discord.html#discord-intro).
-* Obtain a [Finnhub](https://finnhub.io) API key.
-* Update the information in `sample.env`.
+
+### Obtain API keys
+Obtain API keys for [Finnhub](https://finnhub.io), [Alpha Vantage](https://www.alphavantage.co/), and [Financial Modeling](https://financialmodelingprep.com/developer/docs). Add these to the `.env` file as well.
+
+### Optional customization
+There are some more configuration options in `.env`. 
+* You can use custom emojis to react to messages containing "stonks" or "unstonks". If the emojis are standard unicode emojis, you can just replace them in the `.env` directly. If they are custom discord emojis from your server, type `\:emoji-name:` in a channel in your server and press enter to get emoji ID. It should look something like `<:stonks:123456789123456789>`. Paste the entire thing `<:name:id>` into the `.env` file. 
+* You can change the ticker that the bot's status tracks. By setting this to `PORTFOLIO`, it will just track the value of the paper trading portfolio. Additionally, you can change the update time (keep this bigger for `PORTFOLIO` to avoid hitting daily rate limits).
+* You can enable test mode, which will let you test the "order queue" functionality. Rather than actually checking whether the markets are open before executing a trade or adding it to the queue, it will treat the markets as open when the current minute is even and closed when the current minute is odd.
+* Additional options are documented in the `sample.env` file. 
