@@ -281,25 +281,27 @@ async def portfolio_message(message):
 
 
 async def help_message(message):
-    msg =  "Usage for stonks-bot:\n```"
-    msg += "stonks help                     : display this message\n"
-    msg += "\n### Stock Watching ###\n"
-    msg += "stonks TICKER1 TICKER2...       : get quote for specified tickers\n"
-    msg += "stonks info TICKER1 TICKER2...  : get company info for specified tickers\n"
-    msg += "stonks status TICKER            : watch company (or PORTFOLIO) in bot status\n"
-    msg += "stonks chart TICKER TIMESCALE   : draw chart for specified ticker\n"
-    msg += "    +---- available timescales  : W (week), M (month), Y (year), F (full)\n\n"
-    msg += "\n### Paper Trading ###\n"
-    msg += "stonks buy TICKER1 QTY1 TICKER2 QTY2...\n"
-    msg += "    +---- buy shares (or add to order queue to execute at market open)\n\n"
-    msg += "stonks sell TICKER1 QTY1 TICKER2 QTY2...\n"
-    msg += "    +---- sell shares (or add to order queue to execute at market open)\n\n"
-    msg += "stonks queue                    : show the current order queue\n"
-    msg += "stonks queue remove i           : remove the i'th order from the queue\n"
-    msg += "stonks portfolio                : get current holdings information\n"
-    msg += "stonks info portfolio           : also get current holdings information\n"
-    msg += "stonks chart portfolio          : draw chart of holdings value over time\n"
-    msg += "```"
+    msg =  """  
+    Usage for stonks-bot: send `stonks` and then a command.```
+    help                       : display this message
+
+    ### Stock Watching ###
+    quote TICKER1 TICKER2...   : get quote for specified tickers
+    info TICKER1 TICKER2...    : get company info for specified tickers
+    status TICKER              : watch company (or PORTFOLIO) in bot status
+    chart TICKER TIMESCALE     : draw chart for specified ticker. Timescales: W, M, Y, F (full)
+
+    ### Paper Trading ###
+    buy TICKER1 QTY1 T2 Q2...  : buy shares (or add to order queue to execute at market open)
+    sell TICKER1 QTY1 T2 Q2... : sell shares (or add to order queue to execute at market open)
+    queue                      : show the current order queue
+    queue remove i             : remove the i'th order from the queue
+    portfolio                  : get current holdings information
+    info portfolio             : also get current holdings information
+    chart portfolio            : draw chart of holdings value over time```
+    """
+
+    msg = textwrap.dedent(msg)
 
     await message.channel.send(msg)
 
