@@ -27,138 +27,157 @@ pfp_panik = bytearray(open("pfp/panik.jpg", 'rb').read())
 pfp_kalm = bytearray(open("pfp/kalm.jpg", 'rb').read())
 
 
-client = discord.Client()
+class StonksBot(discord.Client):
+    def __init__(self):
+        super().__init__()
 
-broker = Broker(FINANCIALMODELING_KEYS, test_mode=TEST_MODE)
+        self.attach_ready_handler()
+        self.attach_message_handler()
 
-@client.event
-async def on_ready():
-    print('We have logged in as {0.user}'.format(client))
+    def attach_ready_handler(self):
+        @self.event
+        async def on_ready():
+            print('We have logged in as {0.user}'.format(self))
 
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
+    def attach_message_handler(self):
+        @self.event
+        async def on_message(message):
+            if message.author == self.user:
+                return
+            await self.add_emoji(message)
+            await self.process_message(message)
 
-    if not message.content.lower().startswith('stonks'):
-        if "unstonk" in message.content.lower():
+    async def add_emoji(self, message):
+        content = message.content.lower()
+        if "unstonk" in content:
             await message.add_reaction(UNSTONKS_EMOJI)
-        elif "stonk" in message.content.lower():
+        elif "stonk" in content:
             await message.add_reaction(STONKS_EMOJI)
-        return
 
-    async with message.channel.typing():
-
-        tokens = [tok for tok in message.content.strip().split(' ')[1:] if tok]
-
-        if len(tokens) == 0:
-            await message.add_reaction(STONKS_EMOJI)
+    async def process_message(self, message):
+        content = message.content.lower()
+        tokens = content.split()
+        if tokens[0] != "stonks":
             return
 
-        if tokens[0].lower() == "status":
-            global status_ticker
-            status_ticker = tokens[1].upper()
-            await ticker_status()
-            await message.channel.send(f"Updated status to track {status_ticker}.")
-            return
-        
-        if tokens[0].lower() == "chart":
-            if len(tokens) < 2:
-                await message.channel.send("Please provide a ticker to chart.")
+        async with message.channel.typing():
+
+            tokens = [tok for tok in message.content.strip().split(' ')[1:] if tok]
+
+            if len(tokens) == 0:
+                await message.add_reaction(STONKS_EMOJI)
                 return
-            if len(tokens) > 3:
-                await message.channel.send(f"Only charting {tokens[1].upper()}.")
-            if len(tokens) == 2:
-                tokens.append("M")
-                if tokens[1].upper() != "PORTFOLIO":
-                    await message.channel.send("Defaulting to month timescale.")
-            else:
-                if tokens[2].upper() in "WMYF" and len(tokens[2]) == 1:
-                    await chart_message(tokens[1], message, time_span=tokens[2].upper())
+
+            if tokens[0].lower() == "status":
+                global status_ticker
+                status_ticker = tokens[1].upper()
+                await ticker_status()
+                await message.channel.send(f"Updated status to track {status_ticker}.")
+                return
+            
+            if tokens[0].lower() == "chart":
+                if len(tokens) < 2:
+                    await message.channel.send("Please provide a ticker to chart.")
                     return
+                if len(tokens) > 3:
+                    await message.channel.send(f"Only charting {tokens[1].upper()}.")
+                if len(tokens) == 2:
+                    tokens.append("M")
+                    if tokens[1].upper() != "PORTFOLIO":
+                        await message.channel.send("Defaulting to month timescale.")
                 else:
-                    await message.channel.send(f"Unrecognized timescale {tokens[2]}. (`W`, `M`, `Y`, `F` supported). Defaulting to `M` (month)")
-            await chart_message(tokens[1], message)
-            return
-
-        if tokens[0].lower() == "info":
-            for token in tokens[1:]:
-                await info_message(token.upper(), message)
-            return
-
-        if tokens[0].lower() == "buy":
-            buy_orders = {}
-            if len(tokens) % 2 == 0:
-                await message.channel.send("Buy format: `stonks buy ABC 1 DEFG 2 H 3`")
+                    if tokens[2].upper() in "WMYF" and len(tokens[2]) == 1:
+                        await chart_message(tokens[1], message, time_span=tokens[2].upper())
+                        return
+                    else:
+                        await message.channel.send(f"Unrecognized timescale {tokens[2]}. (`W`, `M`, `Y`, `F` supported). Defaulting to `M` (month)")
+                await chart_message(tokens[1], message)
                 return
-            for i in range(1, len(tokens) - 1, 2):
-                ticker = tokens[i].upper()
-                try:
-                    count = int(tokens[i+1])
-                    if count <= 0:
-                        await message.channel.send(f"Shorting is not supported. Skipping order for {count}x{ticker}")
-                        continue
-                except:
+
+            if tokens[0].lower() == "info":
+                for token in tokens[1:]:
+                    await info_message(token.upper(), message)
+                return
+
+            if tokens[0].lower() == "buy":
+                buy_orders = {}
+                if len(tokens) % 2 == 0:
                     await message.channel.send("Buy format: `stonks buy ABC 1 DEFG 2 H 3`")
                     return
-                buy_orders[ticker] = count
-            msgs = broker.buy_stocks(buy_orders)
-            for msg in msgs:
-                await message.channel.send(msg)
-            await message.channel.send(f"Available cash balance: ${broker.balance:,.2f}")
-            return
-
-        if tokens[0].lower() == "sell":
-            sell_orders = {}
-            if len(tokens) % 2 == 0:
-                await message.channel.send("Sell format: `stonks sell ABC 1 DEFG 2 H 3`")
+                for i in range(1, len(tokens) - 1, 2):
+                    ticker = tokens[i].upper()
+                    try:
+                        count = int(tokens[i+1])
+                        if count <= 0:
+                            await message.channel.send(f"Shorting is not supported. Skipping order for {count}x{ticker}")
+                            continue
+                    except:
+                        await message.channel.send("Buy format: `stonks buy ABC 1 DEFG 2 H 3`")
+                        return
+                    buy_orders[ticker] = count
+                msgs = broker.buy_stocks(buy_orders)
+                for msg in msgs:
+                    await message.channel.send(msg)
+                await message.channel.send(f"Available cash balance: ${broker.balance:,.2f}")
                 return
-            for i in range(1, len(tokens) - 1, 2):
-                ticker = tokens[i].upper()
-                try:
-                    count = int(tokens[i+1])
-                    if count <= 0:
-                        await message.channel.send(f"Shorting is not supported. Skipping order for {count}x{ticker}")
-                        continue
-                except:
-                    await message.channel.send("Buy format: `stonks sell ABC 1 DEFG 2 H 3`")
+
+            if tokens[0].lower() == "sell":
+                sell_orders = {}
+                if len(tokens) % 2 == 0:
+                    await message.channel.send("Sell format: `stonks sell ABC 1 DEFG 2 H 3`")
                     return
-                sell_orders[ticker] = count
-            msgs = broker.sell_stocks(sell_orders)
-            for msg in msgs:
-                await message.channel.send(msg)
-            await message.channel.send(f"Available cash balance: ${broker.balance:,.2f}")
-            return
+                for i in range(1, len(tokens) - 1, 2):
+                    ticker = tokens[i].upper()
+                    try:
+                        count = int(tokens[i+1])
+                        if count <= 0:
+                            await message.channel.send(f"Shorting is not supported. Skipping order for {count}x{ticker}")
+                            continue
+                    except:
+                        await message.channel.send("Buy format: `stonks sell ABC 1 DEFG 2 H 3`")
+                        return
+                    sell_orders[ticker] = count
+                msgs = broker.sell_stocks(sell_orders)
+                for msg in msgs:
+                    await message.channel.send(msg)
+                await message.channel.send(f"Available cash balance: ${broker.balance:,.2f}")
+                return
+            
+            if tokens[0].lower() == "info":
+                for token in tokens[1:]:
+                    await info_message(token.upper(), message)
+                return
+
+            if tokens[0].lower() == "portfolio":
+                await portfolio_message(message)
+                return
+
+            if tokens[0].lower() == "help":
+                await help_message(message)
+                return
+
+            if tokens[0].lower() == "queue":
+                if len(tokens) > 1 and tokens[1].lower() == "remove":
+                    try:
+                        idx = int(tokens[2])
+                    except:
+                        await message.channel.send("Please provide an order number to remove.")
+                        return
+                    await remove_order(idx, message)
+                    return
+
+                await queue_message(message)
+                return
+
+            for token in tokens:
+                ticker = token.upper()
+                await ticker_message(ticker, message)
         
-        if tokens[0].lower() == "info":
-            for token in tokens[1:]:
-                await info_message(token.upper(), message)
-            return
+    async def send_message(self, channel, message, **kwargs):
+        await channel.send(message, **kwargs)
+        
 
-        if tokens[0].lower() == "portfolio":
-            await portfolio_message(message)
-            return
-
-        if tokens[0].lower() == "help":
-            await help_message(message)
-            return
-
-        if tokens[0].lower() == "queue":
-            if len(tokens) > 1 and tokens[1].lower() == "remove":
-                try:
-                    idx = int(tokens[2])
-                except:
-                    await message.channel.send("Please provide an order number to remove.")
-                    return
-                await remove_order(idx, message)
-                return
-
-            await queue_message(message)
-            return
-
-        for token in tokens:
-            ticker = token.upper()
-            await ticker_message(ticker, message)
+broker = Broker(FINANCIALMODELING_KEYS, test_mode=TEST_MODE)
 
 def get_quote(symbol):
     url = 'https://finnhub.io/api/v1/quote?symbol=' + symbol + '&token=' + FINNHUB_KEY
@@ -327,5 +346,7 @@ async def remove_order(idx, message):
     msg += '`\n `stonks queue` to see the updated queue.'
     await message.channel.send(msg)
 
+
+client = StonksBot()
 ticker_status.start()
 client.run(TOKEN)
