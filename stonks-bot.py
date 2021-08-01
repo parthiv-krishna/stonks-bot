@@ -33,6 +33,8 @@ class StonksBot(discord.Client):
 
         self.attach_ready_handler()
         self.attach_message_handler()
+        self.broker = Broker(FINANCIALMODELING_KEYS, test_mode=TEST_MODE)
+        self.ticker_status.start()
 
     def attach_ready_handler(self):
         @self.event
@@ -71,7 +73,7 @@ class StonksBot(discord.Client):
             if tokens[0].lower() == "status":
                 global status_ticker
                 status_ticker = tokens[1].upper()
-                await ticker_status()
+                await self.ticker_status()
                 await message.channel.send(f"Updated status to track {status_ticker}.")
                 return
             
@@ -87,16 +89,16 @@ class StonksBot(discord.Client):
                         await message.channel.send("Defaulting to month timescale.")
                 else:
                     if tokens[2].upper() in "WMYF" and len(tokens[2]) == 1:
-                        await chart_message(tokens[1], message, time_span=tokens[2].upper())
+                        await self.chart_message(tokens[1], message, time_span=tokens[2].upper())
                         return
                     else:
                         await message.channel.send(f"Unrecognized timescale {tokens[2]}. (`W`, `M`, `Y`, `F` supported). Defaulting to `M` (month)")
-                await chart_message(tokens[1], message)
+                await self.chart_message(tokens[1], message)
                 return
 
             if tokens[0].lower() == "info":
                 for token in tokens[1:]:
-                    await info_message(token.upper(), message)
+                    await self.info_message(token.upper(), message)
                 return
 
             if tokens[0].lower() == "buy":
@@ -115,10 +117,10 @@ class StonksBot(discord.Client):
                         await message.channel.send("Buy format: `stonks buy ABC 1 DEFG 2 H 3`")
                         return
                     buy_orders[ticker] = count
-                msgs = broker.buy_stocks(buy_orders)
+                msgs = self.broker.buy_stocks(buy_orders)
                 for msg in msgs:
                     await message.channel.send(msg)
-                await message.channel.send(f"Available cash balance: ${broker.balance:,.2f}")
+                await message.channel.send(f"Available cash balance: ${self.broker.balance:,.2f}")
                 return
 
             if tokens[0].lower() == "sell":
@@ -137,23 +139,23 @@ class StonksBot(discord.Client):
                         await message.channel.send("Buy format: `stonks sell ABC 1 DEFG 2 H 3`")
                         return
                     sell_orders[ticker] = count
-                msgs = broker.sell_stocks(sell_orders)
+                msgs = self.broker.sell_stocks(sell_orders)
                 for msg in msgs:
                     await message.channel.send(msg)
-                await message.channel.send(f"Available cash balance: ${broker.balance:,.2f}")
+                await message.channel.send(f"Available cash balance: ${self.broker.balance:,.2f}")
                 return
             
             if tokens[0].lower() == "info":
                 for token in tokens[1:]:
-                    await info_message(token.upper(), message)
+                    await self.info_message(token.upper(), message)
                 return
 
             if tokens[0].lower() == "portfolio":
-                await portfolio_message(message)
+                await self.portfolio_message(message)
                 return
 
             if tokens[0].lower() == "help":
-                await help_message(message)
+                await self.help_message(message)
                 return
 
             if tokens[0].lower() == "queue":
@@ -163,190 +165,186 @@ class StonksBot(discord.Client):
                     except:
                         await message.channel.send("Please provide an order number to remove.")
                         return
-                    await remove_order(idx, message)
+                    await self.remove_order(idx, message)
                     return
 
-                await queue_message(message)
+                await self.queue_message(message)
                 return
 
             for token in tokens:
                 ticker = token.upper()
-                await ticker_message(ticker, message)
+                await self.ticker_message(ticker, message)
         
     async def send_message(self, channel, message, **kwargs):
         await channel.send(message, **kwargs)
         
-
-broker = Broker(FINANCIALMODELING_KEYS, test_mode=TEST_MODE)
-
-def get_quote(symbol):
-    url = 'https://finnhub.io/api/v1/quote?symbol=' + symbol + '&token=' + FINNHUB_KEY
-    response = requests.get(url)
-    quote = response.json()
-    if quote['c'] == 0:
-        return None
-    change = round(quote['c'] - quote['pc'], 2)
-    quote['change'] = '+$' + str(change) if change > 0 else '-$' + str(abs(change))
-    percent = round((((quote['c'] / quote['pc']) - 1)*100), 2)
-    quote['percent'] = '+' + str(percent) if percent > 0 else str(percent)
-    quote['symbol'] = symbol
-    quote['emoji'] = STONKS_EMOJI if change > 0 else UNSTONKS_EMOJI
-    return quote
-
-async def ticker_message(ticker, message, quote="default"):
-    if quote == "default":
-        quote = get_quote(ticker)
-    if quote == None:
-        msg = f"No information found for ticker **{ticker}**."
-    else:
-        msg = "**{symbol}**: ${c:,.2f} ({change} {emoji} {percent}%) *Open*: ${o:,.2f} *High*: ${h:,.2f} *Low*: ${l:,.2f} *Prev. Close*: ${pc:,.2f}".format(**quote)
-    print("MESSAGE", msg)
-    await message.channel.send(msg)
-
-@loop(seconds=STATUS_UPDATE_SECS)
-async def ticker_status():
-    if not client.is_ready():
-        await client.wait_until_ready()
-        stonks_channel = client.get_channel(int(os.getenv('STONKS_CHANNEL')))
-        await stonks_channel.send("stonks bot active in " + ("test" if TEST_MODE else "live") + " mode. send `stonks help` for a list of commands")
-    stonks_channel = client.get_channel(int(os.getenv('STONKS_CHANNEL')))
-    if broker.order_queue and broker.market_is_open():
-        msg = await stonks_channel.send("Executing order queue")
-        broker.execute_queue_orders()
-        await portfolio_message(msg)
-    
-    if status_ticker == "PORTFOLIO":
-        quote = {}
-        quote['c'] = broker.get_curr_val()
-        quote['symbol'] = ""
-        quote['pc'] = broker.get_prev_close()
-
+    def get_quote(self, symbol):
+        url = 'https://finnhub.io/api/v1/quote?symbol=' + symbol + '&token=' + FINNHUB_KEY
+        response = requests.get(url)
+        quote = response.json()
+        if quote['c'] == 0:
+            return None
+        change = round(quote['c'] - quote['pc'], 2)
+        quote['change'] = '+$' + str(change) if change > 0 else '-$' + str(abs(change))
         percent = round((((quote['c'] / quote['pc']) - 1)*100), 2)
         quote['percent'] = '+' + str(percent) if percent > 0 else str(percent)
+        quote['symbol'] = symbol
+        quote['emoji'] = STONKS_EMOJI if change > 0 else UNSTONKS_EMOJI
+        return quote
 
-    else:
-        quote = get_quote(status_ticker)
+    async def ticker_message(self, ticker, message, quote="default"):
+        if quote == "default":
+            quote = self.get_quote(ticker)
+        if quote == None:
+            msg = f"No information found for ticker **{ticker}**."
+        else:
+            msg = "**{symbol}**: ${c:,.2f} ({change} {emoji} {percent}%) *Open*: ${o:,.2f} *High*: ${h:,.2f} *Low*: ${l:,.2f} *Prev. Close*: ${pc:,.2f}".format(**quote)
+        print("MESSAGE", msg)
+        await message.channel.send(msg)
 
-    if quote == None:
-        stat = f"ERROR: {status_ticker}"
-    else:
-        stat = "{symbol} ${c:,.2f} {percent}%".format(**quote)
-    print("STATUS", stat)
-    game = discord.Activity(name=stat, type=discord.ActivityType.watching)
-    await client.change_presence(status=discord.Status.online, activity=game)
-    new_name = "stonks" if quote['c'] > quote['pc'] else "unstonks"
-    if new_name != stonks_channel.name:
-        print("Updating channel name to: " + new_name)
-        await stonks_channel.edit(name=new_name)
-        new_pfp = pfp_kalm if quote['c'] > quote['pc'] else pfp_panik
-        await client.user.edit(avatar=new_pfp)
-        print("Changing picture")
+    @loop(seconds=STATUS_UPDATE_SECS)
+    async def ticker_status(self):
+        if not client.is_ready():
+            await client.wait_until_ready()
+            stonks_channel = client.get_channel(int(os.getenv('STONKS_CHANNEL')))
+            await stonks_channel.send("stonks bot active in " + ("test" if TEST_MODE else "live") + " mode. send `stonks help` for a list of commands")
+        stonks_channel = client.get_channel(int(os.getenv('STONKS_CHANNEL')))
+        if self.broker.order_queue and self.broker.market_is_open():
+            msg = await stonks_channel.send("Executing order queue")
+            self.broker.execute_queue_orders()
+            await self.portfolio_message(msg)
+        
+        if status_ticker == "PORTFOLIO":
+            quote = {}
+            quote['c'] = self.broker.get_curr_val()
+            quote['symbol'] = ""
+            quote['pc'] = self.broker.get_prev_close()
 
-async def chart_message(ticker, message, time_span="M"):
-    quote = get_quote(ticker.upper())
+            percent = round((((quote['c'] / quote['pc']) - 1)*100), 2)
+            quote['percent'] = '+' + str(percent) if percent > 0 else str(percent)
 
-    if ticker.upper() == "PORTFOLIO":
-        broker.save_chart_of_portfolio_history()
-    elif not save_chart(ticker, realtime=quote, time_span=time_span):
-        await(message.channel.send(ticker.upper() + " not found."))
-        return
-    print("CHART", ticker)
-    await message.channel.send(file=discord.File('stonks.jpg'))
-    if ticker.upper() == "PORTFOLIO":
-        await message.channel.send(f"Portfolio value: ${broker.get_curr_val():,.2f} (`stonks portfolio` for full holdings)")
-    else:
-        await ticker_message(ticker.upper(), message, quote=quote)
+        else:
+            quote = self.get_quote(status_ticker)
 
-async def info_message(symbol, message):
-    if symbol == "PORTFOLIO":
-        await portfolio_message(message)
-        return
+        if quote == None:
+            stat = f"ERROR: {status_ticker}"
+        else:
+            stat = "{symbol} ${c:,.2f} {percent}%".format(**quote)
+        print("STATUS", stat)
+        game = discord.Activity(name=stat, type=discord.ActivityType.watching)
+        await client.change_presence(status=discord.Status.online, activity=game)
+        new_name = "stonks" if quote['c'] > quote['pc'] else "unstonks"
+        if new_name != stonks_channel.name:
+            print("Updating channel name to: " + new_name)
+            await stonks_channel.edit(name=new_name)
+            new_pfp = pfp_kalm if quote['c'] > quote['pc'] else pfp_panik
+            await client.user.edit(avatar=new_pfp)
+            print("Changing picture")
 
-    url = 'https://www.alphavantage.co/query?function=OVERVIEW&symbol=' + symbol + '&apikey=' + ALPHAVANTAGE_KEY
-    response = requests.get(url)
-    info = response.json()
-    desc = info['Description']
-    desc_lines = textwrap.wrap(desc, width=INFO_WIDTH)
-    with open('stonks.txt', mode="w") as f:
-        f.write('\n'.join(desc_lines))
-    period = desc.find(".", 50) # skip period from Corp. etc
-    first_sentence = desc[:period+1]
-    msg = "Info for **" + symbol + "**: " + first_sentence + " [Open attached file for full info]"
-    await message.channel.send(msg, file=discord.File('stonks.txt'))
+    async def chart_message(self, ticker, message, time_span="M"):
+        quote = self.get_quote(ticker.upper())
 
-async def portfolio_message(message):
-    msg = "Current portfolio: \n```"
-    total = broker.balance
-    if broker.owned_shares:
-        prices = broker.get_curr_prices(broker.owned_shares)
-        for ticker in broker.owned_shares:
-            n_shares = broker.owned_shares[ticker]
-            cost = broker.cost_basis[ticker]
-            cost_str = f"{cost:.2f}"
-            msg += f"{ticker.ljust(5)}{str(n_shares).rjust(6)} @ ${cost_str.ljust(9)}"
-            price = prices[ticker]
-            price_str = f"{price:,.2f}"
-            msg += f" Current: ${price_str.ljust(8)} (total: "
-            subtotal = prices[ticker] * broker.owned_shares[ticker]
-            subtotal_str = f"{subtotal:,.2f}"
-            percent = ((price - cost)/cost) * 100
-            percent_str = f"+{percent:.2f}" if percent > 0 else f"{percent:.2f}"
-            msg += f"${subtotal_str.ljust(10)} | {percent_str}%)\n"
-            total += subtotal
-    msg += f"\nCash Balance:          ${broker.balance:,.2f}\n"
-    msg += f"Total portfolio value: ${total:,.2f}\n"
-    msg += "```"
-    await message.channel.send(msg)
+        if ticker.upper() == "PORTFOLIO":
+            self.broker.save_chart_of_portfolio_history()
+        elif not save_chart(ticker, realtime=quote, time_span=time_span):
+            await(message.channel.send(ticker.upper() + " not found."))
+            return
+        print("CHART", ticker)
+        await message.channel.send(file=discord.File('stonks.jpg'))
+        if ticker.upper() == "PORTFOLIO":
+            await message.channel.send(f"Portfolio value: ${self.broker.get_curr_val():,.2f} (`stonks portfolio` for full holdings)")
+        else:
+            await self.ticker_message(ticker.upper(), message, quote=quote)
 
+    async def info_message(self, symbol, message):
+        if symbol == "PORTFOLIO":
+            await self.portfolio_message(message)
+            return
 
-async def help_message(message):
-    msg =  """  
-    Usage for stonks-bot: send `stonks` and then a command.```
-    help                       : display this message
+        url = 'https://www.alphavantage.co/query?function=OVERVIEW&symbol=' + symbol + '&apikey=' + ALPHAVANTAGE_KEY
+        response = requests.get(url)
+        info = response.json()
+        desc = info['Description']
+        desc_lines = textwrap.wrap(desc, width=INFO_WIDTH)
+        with open('stonks.txt', mode="w") as f:
+            f.write('\n'.join(desc_lines))
+        period = desc.find(".", 50) # skip period from Corp. etc
+        first_sentence = desc[:period+1]
+        msg = "Info for **" + symbol + "**: " + first_sentence + " [Open attached file for full info]"
+        await message.channel.send(msg, file=discord.File('stonks.txt'))
 
-    ### Stock Watching ###
-    quote TICKER1 TICKER2...   : get quote for specified tickers
-    info TICKER1 TICKER2...    : get company info for specified tickers
-    status TICKER              : watch company (or PORTFOLIO) in bot status
-    chart TICKER TIMESCALE     : draw chart for specified ticker. Timescales: W, M, Y, F (full)
-
-    ### Paper Trading ###
-    buy TICKER1 QTY1 T2 Q2...  : buy shares (or add to order queue to execute at market open)
-    sell TICKER1 QTY1 T2 Q2... : sell shares (or add to order queue to execute at market open)
-    queue                      : show the current order queue
-    queue remove i             : remove the i'th order from the queue
-    portfolio                  : get current holdings information
-    info portfolio             : also get current holdings information
-    chart portfolio            : draw chart of holdings value over time```
-    """
-
-    msg = textwrap.dedent(msg)
-
-    await message.channel.send(msg)
-
-async def queue_message(message):
-    if broker.order_queue:   
-        msg = "Order queue: ```\n"
-        for i, order in enumerate(broker.order_queue):
-            msg += f"{i} ({order[0]}): "
-            for ticker in order[1]:
-                msg += f"{ticker} x{order[1][ticker]}   "
-            msg += "\n"
-        msg += "```Use `stonks queue remove i` to remove the `i`th order."
-    else:
-        msg += "Order queue is empty."
-    await message.channel.send(msg)
-
-async def remove_order(idx, message):
-    order = broker.remove_order(idx)
-    msg =  f"Removed order from the queue:\n"
-    msg += f"`{idx} ({order[0]}): "
-    for ticker in order[1]:
-        msg += f"{ticker} x{order[1][ticker]}   "
-    msg += '`\n `stonks queue` to see the updated queue.'
-    await message.channel.send(msg)
+    async def portfolio_message(self, message):
+        msg = "Current portfolio: \n```"
+        total = self.broker.balance
+        if self.broker.owned_shares:
+            prices = self.broker.get_curr_prices(self.broker.owned_shares)
+            for ticker in self.broker.owned_shares:
+                n_shares = self.broker.owned_shares[ticker]
+                cost = self.broker.cost_basis[ticker]
+                cost_str = f"{cost:.2f}"
+                msg += f"{ticker.ljust(5)}{str(n_shares).rjust(6)} @ ${cost_str.ljust(9)}"
+                price = prices[ticker]
+                price_str = f"{price:,.2f}"
+                msg += f" Current: ${price_str.ljust(8)} (total: "
+                subtotal = prices[ticker] * self.broker.owned_shares[ticker]
+                subtotal_str = f"{subtotal:,.2f}"
+                percent = ((price - cost)/cost) * 100
+                percent_str = f"+{percent:.2f}" if percent > 0 else f"{percent:.2f}"
+                msg += f"${subtotal_str.ljust(10)} | {percent_str}%)\n"
+                total += subtotal
+        msg += f"\nCash Balance:          ${self.broker.balance:,.2f}\n"
+        msg += f"Total portfolio value: ${total:,.2f}\n"
+        msg += "```"
+        await message.channel.send(msg)
 
 
-client = StonksBot()
-ticker_status.start()
-client.run(TOKEN)
+    async def help_message(self, message):
+        msg =  """  
+        Usage for stonks-bot: send `stonks` and then a command.```
+        help                       : display this message
+
+        ### Stock Watching ###
+        quote TICKER1 TICKER2...   : get quote for specified tickers
+        info TICKER1 TICKER2...    : get company info for specified tickers
+        status TICKER              : watch company (or PORTFOLIO) in bot status
+        chart TICKER TIMESCALE     : draw chart for specified ticker. Timescales: W, M, Y, F (full)
+
+        ### Paper Trading ###
+        buy TICKER1 QTY1 T2 Q2...  : buy shares (or add to order queue to execute at market open)
+        sell TICKER1 QTY1 T2 Q2... : sell shares (or add to order queue to execute at market open)
+        queue                      : show the current order queue
+        queue remove i             : remove the i'th order from the queue
+        portfolio                  : get current holdings information
+        info portfolio             : also get current holdings information
+        chart portfolio            : draw chart of holdings value over time```
+        """
+
+        msg = textwrap.dedent(msg)
+
+        await message.channel.send(msg)
+
+    async def queue_message(self, message):
+        if self.broker.order_queue:   
+            msg = "Order queue: ```\n"
+            for i, order in enumerate(self.broker.order_queue):
+                msg += f"{i} ({order[0]}): "
+                for ticker in order[1]:
+                    msg += f"{ticker} x{order[1][ticker]}   "
+                msg += "\n"
+            msg += "```Use `stonks queue remove i` to remove the `i`th order."
+        else:
+            msg = "Order queue is empty."
+        await message.channel.send(msg)
+
+    async def remove_order(self, idx, message):
+        order = self.broker.remove_order(idx)
+        msg =  f"Removed order from the queue:\n"
+        msg += f"`{idx} ({order[0]}): "
+        for ticker in order[1]:
+            msg += f"{ticker} x{order[1][ticker]}   "
+        msg += '`\n `stonks queue` to see the updated queue.'
+        await message.channel.send(msg)
+
+if __name__ == "__main__":
+    stonks_bot = StonksBot()
+    stonks_bot.run(TOKEN)
